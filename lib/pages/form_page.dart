@@ -38,28 +38,37 @@ class _FormPageState extends State<FormPage> {
   }
 
   Future<String?> uploadImage() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery);
-    if (picked == null) return null;
+    final picker =
+        ImagePicker(); // Inisialisasi ImagePicker untuk memilih gambar
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+    ); // Memilih gambar dari galeri
+    if (picked == null)
+      return null; // Jika tidak ada gambar yang dipilih, kembalikan null
 
-    final file = File(picked.path);
+    final file = File(picked.path); // Mengambil file dari path yang dipilih
     final fileName =
-        '${DateTime.now().millisecondsSinceEpoch}_${p.basename(picked.path)}';
+        '${DateTime.now().millisecondsSinceEpoch}_${p.basename(picked.path)}'; // Membuat nama file unik berdasarkan waktu dan nama asli file
 
     final response = await supabase.storage
         .from('cctv-images') // Sesuaikan nama bucket
         .upload(
-          'public/$fileName',
+          'public/$fileName', // Menyimpan file di dalam folder 'public' di bucket 'cctv-images'
           file,
-          fileOptions: const FileOptions(upsert: true),
+          fileOptions: const FileOptions(
+            upsert: true,
+          ), // Mengizinkan upsert (update atau insert) file
         );
 
-    if (response.isEmpty) return null;
+    if (response.isEmpty)
+      return null; // Jika tidak ada respons, kembalikan null
 
     final url = supabase.storage
         .from('cctv-images')
-        .getPublicUrl('public/$fileName');
-    return url;
+        .getPublicUrl(
+          'public/$fileName',
+        ); // Mendapatkan URL publik dari file yang diupload
+    return url; // Mengembalikan URL gambar yang diupload
   }
 
   Future<void> saveData() async {
@@ -108,12 +117,33 @@ class _FormPageState extends State<FormPage> {
                 decoration: const InputDecoration(
                   labelText: 'Nama Gedung',
                 ), // Label untuk field nama gedung
+                validator:
+                    (value) =>
+                        value == null || value.isEmpty
+                            ? 'Nama wajib diisi'
+                            : null, // Validasi untuk memastikan nama tidak kosong
               ),
               TextFormField(
                 controller: locationCtrl, // Controller untuk lokasi CCTV
                 decoration: const InputDecoration(
                   labelText: 'Lokasi',
                 ), // Label untuk field lokasi
+                validator:
+                    (value) =>
+                        value == null || value.isEmpty
+                            ? 'Lokasi wajib diisi'
+                            : null, // Validasi untuk memastikan lokasi tidak kosong
+              ),
+              TextFormField(
+                controller: imageUrlCtrl, // Controller untuk URL gambar CCTV
+                decoration: const InputDecoration(
+                  labelText: 'Image URL',
+                ), // Label untuk field URL gambar
+                validator:
+                    (value) =>
+                        value == null || value.isEmpty
+                            ? 'URL gambar  wajib diisi'
+                            : null, // Validasi untuk memastikan URL gambar tidak kosong
               ),
               TextFormField(
                 controller: imageUrlCtrl, // Controller untuk URL gambar CCTV
@@ -121,9 +151,38 @@ class _FormPageState extends State<FormPage> {
                   labelText: 'Image URL',
                 ), // Label untuk field URL gambar
               ),
+              const SizedBox(height: 10),
+              // Tombol upload gambar
+              ElevatedButton.icon(
+                icon: const Icon(Icons.image),
+                label: const Text('Upload Gambar'),
+                onPressed: () async {
+                  final url = await uploadImage();
+                  if (url != null) {
+                    setState(() {
+                      imageUrlCtrl.text = url;
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Gambar berhasil diupload!'),
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Upload gambar dibatalkan!'),
+                      ),
+                    );
+                  }
+                },
+              ),
               const SizedBox(height: 20), // Jarak antar field
               ElevatedButton(
-                onPressed: saveData,
+                onPressed: () {
+                  if (_formKey.currentState!.validate()) {
+                    saveData();
+                  }
+                }, // Validasi form sebelum menyimpan data
                 child: const Text('Simpan'),
               ), // Tombol untuk menyimpan data
             ],
