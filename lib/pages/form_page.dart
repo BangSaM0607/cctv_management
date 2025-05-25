@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/cctv.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:path/path.dart' as p;
 
 class FormPage extends StatefulWidget {
   final CCTV? cctv; // CCTV yang akan diedit, null jika untuk tambah baru
@@ -32,6 +35,31 @@ class _FormPageState extends State<FormPage> {
       imageUrlCtrl.text =
           widget.cctv!.imageUrl; // Mengisi controller dengan URL gambar CCTV
     }
+  }
+
+  Future<String?> uploadImage() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery);
+    if (picked == null) return null;
+
+    final file = File(picked.path);
+    final fileName =
+        '${DateTime.now().millisecondsSinceEpoch}_${p.basename(picked.path)}';
+
+    final response = await supabase.storage
+        .from('cctv-images') // Sesuaikan nama bucket
+        .upload(
+          'public/$fileName',
+          file,
+          fileOptions: const FileOptions(upsert: true),
+        );
+
+    if (response.isEmpty) return null;
+
+    final url = supabase.storage
+        .from('cctv-images')
+        .getPublicUrl('public/$fileName');
+    return url;
   }
 
   Future<void> saveData() async {

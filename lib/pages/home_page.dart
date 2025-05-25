@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/cctv.dart';
-import 'pages/form_page.dart';
+import '../../models/cctv.dart';
+import 'form_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({
