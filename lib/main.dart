@@ -16,7 +16,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'CCTV CRUD', // Judul aplikasi
+      title: 'CCTV MANAGEMENT', // Judul aplikasi
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ), // Tema aplikasi dengan warna biru

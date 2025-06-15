@@ -45,5 +45,7 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>App membutuhkan akses ke galeri untuk memilih gambar.</string>
 </dict>
 </plist>

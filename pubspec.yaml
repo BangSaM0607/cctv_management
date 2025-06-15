@@ -30,7 +30,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  supabase_flutter: ^1.10.11  # Supabase Flutter SDK for backend services
+  supabase_flutter: ^1.1.2  # Supabase Flutter SDK for backend services
   image_picker: ^1.0.4  # Image picker for selecting images from the gallery or camera
   path: ^1.8.3  # Path manipulation library for Dart
   path_provider: ^2.1.2 # Provides access to commonly used locations on the filesystem
