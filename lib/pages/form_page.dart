@@ -1,12 +1,9 @@
 import 'dart:io';
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path/path.dart' as p;
 import 'package:supabase_flutter/supabase_flutter.dart';
-
 import '../models/cctv.dart';
+import 'package:uuid/uuid.dart';
 
 class FormPage extends StatefulWidget {
   final CCTV? cctv;
@@ -18,12 +15,13 @@ class FormPage extends StatefulWidget {
 }
 
 class _FormPageState extends State<FormPage> {
-  final _formKey = GlobalKey<FormState>();
   final supabase = Supabase.instance.client;
-
+  final _formKey = GlobalKey<FormState>();
   final nameCtrl = TextEditingController();
   final locationCtrl = TextEditingController();
-  final imageUrlCtrl = TextEditingController();
+  File? selectedImage;
+  bool isUploading = false;
+  bool isActive = true;
 
   @override
   void initState() {
@@ -31,46 +29,46 @@ class _FormPageState extends State<FormPage> {
     if (widget.cctv != null) {
       nameCtrl.text = widget.cctv!.name;
       locationCtrl.text = widget.cctv!.location;
-      imageUrlCtrl.text = widget.cctv!.imageUrl;
+      isActive = widget.cctv!.status;
     }
   }
 
-  Future<String?> uploadImage() async {
+  Future<void> pickImage() async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery);
+    if (picked != null) {
+      setState(() {
+        selectedImage = File(picked.path);
+      });
+    }
+  }
 
-    if (picked == null) return null;
-
-    final bytes = await picked.readAsBytes(); // Convert to Uint8List
-    final fileName =
-        '${DateTime.now().millisecondsSinceEpoch}_${p.basename(picked.path)}';
-
-    final response = await supabase.storage
-        .from('cctv-images') // ganti sesuai bucket kamu
-        .uploadBinary(
-          'public/$fileName',
-          bytes,
-          fileOptions: const FileOptions(
-            contentType: 'image/jpeg',
-            upsert: true,
-          ),
-        );
-
-    if (response.isEmpty) return null;
-
-    final imageUrl = supabase.storage
-        .from('cctv-images')
-        .getPublicUrl('public/$fileName');
-
-    return imageUrl;
+  Future<String?> uploadImage(File file) async {
+    final fileName = const Uuid().v4();
+    final storage = supabase.storage.from('cctv-images');
+    final response = await storage.upload('public/$fileName.jpg', file);
+    if (response != null) {
+      return storage.getPublicUrl('public/$fileName.jpg');
+    }
+    return null;
   }
 
   Future<void> saveData() async {
-    print('saveData dipanggil'); // Tambahkan ini
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => isUploading = true);
+    String imageUrl = widget.cctv?.imageUrl ?? '';
+
+    if (selectedImage != null) {
+      final url = await uploadImage(selectedImage!);
+      if (url != null) imageUrl = url;
+    }
+
     final data = {
       'name': nameCtrl.text,
       'location': locationCtrl.text,
-      'image_url': imageUrlCtrl.text,
+      'image_url': imageUrl,
+      'status': isActive,
     };
 
     if (widget.cctv == null) {
@@ -79,6 +77,7 @@ class _FormPageState extends State<FormPage> {
       await supabase.from('cctvs').update(data).eq('id', widget.cctv!.id);
     }
 
+    setState(() => isUploading = false);
     if (context.mounted) Navigator.pop(context);
   }
 
@@ -89,56 +88,62 @@ class _FormPageState extends State<FormPage> {
         title: Text(widget.cctv == null ? 'Tambah CCTV' : 'Edit CCTV'),
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                TextFormField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(labelText: 'Nama Gedung'),
-                  validator:
-                      (value) =>
-                          value == null || value.isEmpty ? 'Wajib diisi' : null,
+        padding: const EdgeInsets.all(16),
+        child:
+            isUploading
+                ? const Center(child: CircularProgressIndicator())
+                : Form(
+                  key: _formKey,
+                  child: ListView(
+                    children: [
+                      TextFormField(
+                        controller: nameCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Nama Gedung',
+                        ),
+                        validator:
+                            (val) =>
+                                val == null || val.isEmpty
+                                    ? 'Wajib diisi'
+                                    : null,
+                      ),
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        controller: locationCtrl,
+                        decoration: const InputDecoration(labelText: 'Lokasi'),
+                        validator:
+                            (val) =>
+                                val == null || val.isEmpty
+                                    ? 'Wajib diisi'
+                                    : null,
+                      ),
+                      const SizedBox(height: 10),
+                      CheckboxListTile(
+                        title: const Text('CCTV Aktif'),
+                        value: isActive,
+                        onChanged:
+                            (val) => setState(() => isActive = val ?? false),
+                      ),
+                      const SizedBox(height: 10),
+                      ElevatedButton.icon(
+                        onPressed: pickImage,
+                        icon: const Icon(Icons.image),
+                        label: const Text('Pilih Gambar'),
+                      ),
+                      if (selectedImage != null)
+                        Image.file(
+                          selectedImage!,
+                          height: 150,
+                          fit: BoxFit.cover,
+                        ),
+                      const SizedBox(height: 20),
+                      ElevatedButton(
+                        onPressed: saveData,
+                        child: const Text('Simpan'),
+                      ),
+                    ],
+                  ),
                 ),
-                TextFormField(
-                  controller: locationCtrl,
-                  decoration: const InputDecoration(labelText: 'Lokasi'),
-                  validator:
-                      (value) =>
-                          value == null || value.isEmpty ? 'Wajib diisi' : null,
-                ),
-                const SizedBox(height: 10),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.image),
-                  label: const Text("Pilih Gambar"),
-                  onPressed: () async {
-                    final url = await uploadImage();
-                    if (url != null) {
-                      imageUrlCtrl.text = url;
-                      setState(() {});
-                    }
-                  },
-                ),
-                const SizedBox(height: 10),
-                if (imageUrlCtrl.text.isNotEmpty)
-                  Image.network(imageUrlCtrl.text, height: 150),
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: () async {
-                    print('Tombol Simpan ditekan'); // Tambahkan ini
-                    if (_formKey.currentState!.validate()) {
-                      print('Form valid, akan simpan data'); // Tambahkan ini
-                      await saveData();
-                    }
-                  },
-                  child: const Text('Simpan'),
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }
