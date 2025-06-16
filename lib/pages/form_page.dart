@@ -7,7 +7,6 @@ import 'package:uuid/uuid.dart';
 
 class FormPage extends StatefulWidget {
   final CCTV? cctv;
-
   const FormPage({super.key, this.cctv});
 
   @override

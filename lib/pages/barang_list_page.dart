@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
 import '../models/cctv.dart';
 import 'form_page.dart';
 
@@ -39,7 +38,6 @@ class _BarangListPageState extends State<BarangListPage> {
   Future<void> fetchData() async {
     final response = await supabase.from('cctvs').select();
     final data = (response as List).map((e) => CCTV.fromMap(e)).toList();
-
     setState(() {
       _allCctv = data;
       _filteredCctv = data;
