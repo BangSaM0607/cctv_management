@@ -59,7 +59,7 @@ class _HomePageState extends State<HomePage> {
           return (nameMatch || locationMatch) && statusMatch;
         }).toList();
 
-    // Apply Sorting
+    // Sorting
     if (selectedSort == 'A-Z') {
       tempList.sort((a, b) => a.name.compareTo(b.name));
     } else if (selectedSort == 'Z-A') {

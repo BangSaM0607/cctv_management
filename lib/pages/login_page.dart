@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:awesome_dialog/awesome_dialog.dart';
 import 'home_page.dart';
 import 'register_page.dart';
 
@@ -23,40 +24,38 @@ class _LoginPageState extends State<LoginPage> {
       );
 
       if (response.session != null) {
-        // Login berhasil
+        _showDialog('Login berhasil!', DialogType.success);
+        await Future.delayed(const Duration(seconds: 2));
         if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Login berhasil!')));
-
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const HomePage()),
         );
       } else {
-        // Login gagal
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Login gagal, cek email & password!')),
-        );
+        _showDialog('Login gagal, cek email & password!', DialogType.error);
       }
     } on AuthException catch (error) {
-      if (!mounted) return;
       String message = 'Login gagal: ${error.message}';
       if (error.message.contains('Invalid login credentials')) {
         message = 'Email atau password salah!';
       } else if (error.message.contains('User not found')) {
         message = 'Email tidak terdaftar!';
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+      _showDialog(message, DialogType.error);
     } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Terjadi error: $error')));
+      _showDialog('Terjadi error: $error', DialogType.warning);
     }
+  }
+
+  void _showDialog(String message, DialogType type) {
+    AwesomeDialog(
+      context: context,
+      dialogType: type,
+      animType: AnimType.scale,
+      title: 'Informasi',
+      desc: message,
+      btnOkOnPress: () {},
+    ).show();
   }
 
   @override

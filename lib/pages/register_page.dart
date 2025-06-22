@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'login_page.dart';
+import 'package:awesome_dialog/awesome_dialog.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -15,24 +16,39 @@ class _RegisterPageState extends State<RegisterPage> {
   final passwordController = TextEditingController();
 
   Future<void> register() async {
-    final response = await supabase.auth.signUp(
-      email: emailController.text,
-      password: passwordController.text,
-    );
+    try {
+      final response = await supabase.auth.signUp(
+        email: emailController.text,
+        password: passwordController.text,
+      );
 
-    if (response.user != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Registrasi berhasil, silakan login!')),
-      );
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const LoginPage()),
-      );
-    } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Registrasi gagal!')));
+      if (response.user != null) {
+        _showDialog('Registrasi berhasil, silakan login!', DialogType.success);
+        await Future.delayed(const Duration(seconds: 2));
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginPage()),
+        );
+      } else {
+        _showDialog('Registrasi gagal!', DialogType.error);
+      }
+    } on AuthException catch (error) {
+      _showDialog('Error: ${error.message}', DialogType.error);
+    } catch (error) {
+      _showDialog('Terjadi error: $error', DialogType.warning);
     }
+  }
+
+  void _showDialog(String message, DialogType type) {
+    AwesomeDialog(
+      context: context,
+      dialogType: type,
+      animType: AnimType.scale,
+      title: 'Informasi',
+      desc: message,
+      btnOkOnPress: () {},
+    ).show();
   }
 
   @override
