@@ -79,6 +79,40 @@ class _HomePageState extends State<HomePage> {
     fetchCCTVs();
   }
 
+  void _showDeleteConfirmation(BuildContext context, String id) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Konfirmasi Hapus'),
+          content: const Text('Apakah anda yakin ingin menghapus CCTV ini?'),
+          actions: [
+            TextButton(
+              child: const Text('Batal'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Hapus'),
+              onPressed: () async {
+                Navigator.of(context).pop(); // tutup dialog
+                await deleteCCTV(id); // hapus data
+
+                // Tampilkan Snackbar berhasil
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Data CCTV berhasil dihapus!')),
+                );
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -178,10 +212,10 @@ class _HomePageState extends State<HomePage> {
                           },
                         ),
                         IconButton(
-                          icon: const Icon(Icons.delete),
+                          icon: const Icon(Icons.delete, color: Colors.red),
                           onPressed: () {
                             if (cctv.id != null) {
-                              deleteCCTV(cctv.id!);
+                              _showDeleteConfirmation(context, cctv.id!);
                             }
                           },
                         ),
