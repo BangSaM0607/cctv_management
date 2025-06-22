@@ -30,6 +30,7 @@ class _HomePageState extends State<HomePage> {
         .from('data_cctv')
         .select()
         .order('created_at', ascending: false);
+
     final List<CCTV> cctvList =
         response.map((e) => CCTV.fromMap(e)).toList().cast<CCTV>();
 
@@ -112,12 +113,36 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Future<void> _logout() async {
-    await Supabase.instance.client.auth.signOut();
-    if (!mounted) return;
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const LoginPage()),
+  void _showLogoutConfirmation() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Konfirmasi Logout'),
+          content: const Text('Apakah anda yakin ingin logout?'),
+          actions: [
+            TextButton(
+              child: const Text('Batal'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Logout'),
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await Supabase.instance.client.auth.signOut();
+                if (!mounted) return;
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginPage()),
+                );
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -127,7 +152,10 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Text('Data CCTV'),
         actions: [
-          IconButton(icon: const Icon(Icons.logout), onPressed: _logout),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _showLogoutConfirmation,
+          ),
         ],
       ),
       body: Column(
@@ -194,7 +222,8 @@ class _HomePageState extends State<HomePage> {
                     leading: Image.network(
                       cctv.imageUrl,
                       width: 60,
-                      errorBuilder: (_, __, ___) => const Icon(Icons.image),
+                      errorBuilder:
+                          (_, __, ___) => const Icon(Icons.image_not_supported),
                     ),
                     title: Text(cctv.name),
                     subtitle: Column(
@@ -204,7 +233,8 @@ class _HomePageState extends State<HomePage> {
                         Text(
                           cctv.status ? 'Aktif' : 'Nonaktif',
                           style: TextStyle(
-                            color: cctv.status ? Colors.green : Colors.red,
+                            color:
+                                cctv.status ? Colors.green : Colors.redAccent,
                           ),
                         ),
                       ],
@@ -226,11 +256,11 @@ class _HomePageState extends State<HomePage> {
                         ),
                         IconButton(
                           icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () {
-                            if (cctv.id != null) {
-                              _showDeleteConfirmation(context, cctv.id!);
-                            }
-                          },
+                          onPressed:
+                              () => _showDeleteConfirmation(
+                                context,
+                                cctv.id ?? '',
+                              ),
                         ),
                       ],
                     ),
