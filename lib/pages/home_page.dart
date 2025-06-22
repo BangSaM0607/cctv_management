@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/cctv.dart';
 import 'form_page.dart';
 import 'login_page.dart';
+import 'detail_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -219,6 +220,14 @@ class _HomePageState extends State<HomePage> {
                 final cctv = filteredCCTV[index];
                 return Card(
                   child: ListTile(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => DetailPage(cctv: cctv),
+                        ),
+                      );
+                    },
                     leading: Image.network(
                       cctv.imageUrl,
                       width: 60,
