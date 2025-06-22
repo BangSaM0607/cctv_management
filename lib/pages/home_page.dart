@@ -15,7 +15,8 @@ class _HomePageState extends State<HomePage> {
   List<CCTV> dataCCTV = [];
   List<CCTV> filteredCCTV = [];
   String searchQuery = '';
-  String? selectedStatus; // 'semua', 'aktif', 'nonaktif'
+  String? selectedStatus;
+  String selectedSort = 'Terbaru';
 
   @override
   void initState() {
@@ -27,36 +28,49 @@ class _HomePageState extends State<HomePage> {
     final response = await supabase
         .from('data_cctv')
         .select()
-        .order('created_at');
+        .order('created_at', ascending: false);
     final List<CCTV> cctvList =
         response.map((e) => CCTV.fromMap(e)).toList().cast<CCTV>();
 
     setState(() {
       dataCCTV = cctvList;
-      _applySearchAndFilter();
+      _applySearchFilterSort();
     });
   }
 
-  void _applySearchAndFilter() {
+  void _applySearchFilterSort() {
+    List<CCTV> tempList =
+        dataCCTV.where((cctv) {
+          final nameMatch = cctv.name.toLowerCase().contains(
+            searchQuery.toLowerCase(),
+          );
+          final locationMatch = cctv.location.toLowerCase().contains(
+            searchQuery.toLowerCase(),
+          );
+
+          bool statusMatch = true;
+          if (selectedStatus == 'aktif') {
+            statusMatch = cctv.status == true;
+          } else if (selectedStatus == 'nonaktif') {
+            statusMatch = cctv.status == false;
+          }
+
+          return (nameMatch || locationMatch) && statusMatch;
+        }).toList();
+
+    // Apply Sorting
+    if (selectedSort == 'A-Z') {
+      tempList.sort((a, b) => a.name.compareTo(b.name));
+    } else if (selectedSort == 'Z-A') {
+      tempList.sort((a, b) => b.name.compareTo(a.name));
+    } else {
+      tempList.sort(
+        (a, b) => (b.id ?? '').compareTo(a.id ?? ''),
+      ); // Default: created_at DESC
+    }
+
     setState(() {
-      filteredCCTV =
-          dataCCTV.where((cctv) {
-            final nameMatch = cctv.name.toLowerCase().contains(
-              searchQuery.toLowerCase(),
-            );
-            final locationMatch = cctv.location.toLowerCase().contains(
-              searchQuery.toLowerCase(),
-            );
-
-            bool statusMatch = true;
-            if (selectedStatus == 'aktif') {
-              statusMatch = cctv.status == true;
-            } else if (selectedStatus == 'nonaktif') {
-              statusMatch = cctv.status == false;
-            }
-
-            return (nameMatch || locationMatch) && statusMatch;
-          }).toList();
+      filteredCCTV = tempList;
     });
   }
 
@@ -76,7 +90,7 @@ class _HomePageState extends State<HomePage> {
             child: TextField(
               onChanged: (value) {
                 searchQuery = value;
-                _applySearchAndFilter();
+                _applySearchFilterSort();
               },
               decoration: const InputDecoration(
                 labelText: 'Cari Nama / Lokasi',
@@ -96,10 +110,29 @@ class _HomePageState extends State<HomePage> {
               ],
               onChanged: (value) {
                 selectedStatus = value;
-                _applySearchAndFilter();
+                _applySearchFilterSort();
               },
               decoration: const InputDecoration(
                 labelText: 'Filter Status',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: DropdownButtonFormField<String>(
+              value: selectedSort,
+              items: const [
+                DropdownMenuItem(child: Text('Terbaru'), value: 'Terbaru'),
+                DropdownMenuItem(child: Text('A-Z'), value: 'A-Z'),
+                DropdownMenuItem(child: Text('Z-A'), value: 'Z-A'),
+              ],
+              onChanged: (value) {
+                selectedSort = value!;
+                _applySearchFilterSort();
+              },
+              decoration: const InputDecoration(
+                labelText: 'Urutkan',
                 border: OutlineInputBorder(),
               ),
             ),
