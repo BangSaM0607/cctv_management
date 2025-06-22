@@ -1,9 +1,11 @@
+import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/cctv.dart';
-import 'form_page.dart';
-import 'login_page.dart';
-import 'detail_page.dart';
+import '../pages/detail_page.dart';
+import '../pages/form_page.dart';
+import '../utils/insert_log.dart';
+import '../widgets/drawer_menu.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -15,136 +17,100 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final supabase = Supabase.instance.client;
   List<CCTV> dataCCTV = [];
-  List<CCTV> filteredCCTV = [];
   String searchQuery = '';
-  String? selectedStatus;
-  String selectedSort = 'Terbaru';
+  String sortOption = 'name_asc';
+  bool isAdmin = false;
+  bool isOperator = false;
+  bool isViewer = false;
 
   @override
   void initState() {
     super.initState();
     fetchCCTVs();
+    checkRole();
+  }
+
+  Future<void> checkRole() async {
+    final role = supabase.auth.currentUser?.userMetadata?['role'];
+    setState(() {
+      isAdmin = role == 'admin';
+      isOperator = role == 'operator';
+      isViewer = role == 'viewer';
+    });
   }
 
   Future<void> fetchCCTVs() async {
-    final response = await supabase
+    var query = supabase
         .from('data_cctv')
         .select()
-        .order('created_at', ascending: false);
+        .order(
+          sortOption == 'name_asc'
+              ? 'name'
+              : sortOption == 'name_desc'
+              ? 'name'
+              : 'created_at',
+          ascending: sortOption == 'name_desc' ? false : true,
+        );
 
-    final List<CCTV> cctvList =
-        response.map((e) => CCTV.fromMap(e)).toList().cast<CCTV>();
+    final response = await query;
+    final list =
+        (response as List)
+            .map((e) => CCTV.fromMap(e))
+            .where(
+              (cctv) =>
+                  cctv.name.toLowerCase().contains(searchQuery.toLowerCase()) ||
+                  cctv.location.toLowerCase().contains(
+                    searchQuery.toLowerCase(),
+                  ),
+            )
+            .toList();
 
     setState(() {
-      dataCCTV = cctvList;
-      _applySearchFilterSort();
+      dataCCTV = list;
     });
   }
 
-  void _applySearchFilterSort() {
-    List<CCTV> tempList =
-        dataCCTV.where((cctv) {
-          final nameMatch = cctv.name.toLowerCase().contains(
-            searchQuery.toLowerCase(),
-          );
-          final locationMatch = cctv.location.toLowerCase().contains(
-            searchQuery.toLowerCase(),
-          );
+  Future<void> deleteCCTV(String id, String name) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Konfirmasi'),
+            content: Text('Apakah Anda yakin ingin menghapus "$name"?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Batal'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Hapus'),
+              ),
+            ],
+          ),
+    );
 
-          bool statusMatch = true;
-          if (selectedStatus == 'aktif') {
-            statusMatch = cctv.status == true;
-          } else if (selectedStatus == 'nonaktif') {
-            statusMatch = cctv.status == false;
-          }
+    if (confirm == true) {
+      await supabase.from('data_cctv').delete().eq('id', id);
+      await insertLog('delete', 'Hapus CCTV: $name', '');
 
-          return (nameMatch || locationMatch) && statusMatch;
-        }).toList();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.delete, color: Colors.white),
+              SizedBox(width: 8),
+              Text('Data berhasil dihapus'),
+            ],
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
 
-    // Sorting
-    if (selectedSort == 'A-Z') {
-      tempList.sort((a, b) => a.name.compareTo(b.name));
-    } else if (selectedSort == 'Z-A') {
-      tempList.sort((a, b) => b.name.compareTo(a.name));
-    } else {
-      tempList.sort(
-        (a, b) => (b.id ?? '').compareTo(a.id ?? ''),
-      ); // created_at DESC
+      fetchCCTVs();
     }
-
-    setState(() {
-      filteredCCTV = tempList;
-    });
-  }
-
-  Future<void> deleteCCTV(String id) async {
-    await supabase.from('data_cctv').delete().eq('id', id);
-    fetchCCTVs();
-  }
-
-  void _showDeleteConfirmation(BuildContext context, String id) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Konfirmasi Hapus'),
-          content: const Text('Apakah anda yakin ingin menghapus CCTV ini?'),
-          actions: [
-            TextButton(
-              child: const Text('Batal'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text('Hapus'),
-              onPressed: () async {
-                Navigator.of(context).pop();
-                await deleteCCTV(id);
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Data CCTV berhasil dihapus!')),
-                );
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showLogoutConfirmation() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Konfirmasi Logout'),
-          content: const Text('Apakah anda yakin ingin logout?'),
-          actions: [
-            TextButton(
-              child: const Text('Batal'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text('Logout'),
-              onPressed: () async {
-                Navigator.of(context).pop();
-                await Supabase.instance.client.auth.signOut();
-                if (!mounted) return;
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => const LoginPage()),
-                );
-              },
-            ),
-          ],
-        );
-      },
-    );
   }
 
   @override
@@ -153,143 +119,126 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Text('Data CCTV'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: _showLogoutConfirmation,
+          IconButton(icon: const Icon(Icons.refresh), onPressed: fetchCCTVs),
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              setState(() {
+                sortOption = value;
+              });
+              fetchCCTVs();
+            },
+            itemBuilder:
+                (context) => [
+                  const PopupMenuItem(value: 'name_asc', child: Text('A-Z')),
+                  const PopupMenuItem(value: 'name_desc', child: Text('Z-A')),
+                  const PopupMenuItem(
+                    value: 'created_at_desc',
+                    child: Text('Terbaru'),
+                  ),
+                ],
           ),
         ],
       ),
+      drawer: const DrawerMenu(),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.all(8),
             child: TextField(
-              onChanged: (value) {
-                searchQuery = value;
-                _applySearchFilterSort();
-              },
               decoration: const InputDecoration(
-                labelText: 'Cari Nama / Lokasi',
+                hintText: '🔍 Cari Nama Gedung / Lokasi...',
                 prefixIcon: Icon(Icons.search),
                 border: OutlineInputBorder(),
               ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            child: DropdownButtonFormField<String>(
-              value: selectedStatus,
-              items: const [
-                DropdownMenuItem(child: Text('Semua'), value: null),
-                DropdownMenuItem(child: Text('Aktif'), value: 'aktif'),
-                DropdownMenuItem(child: Text('Nonaktif'), value: 'nonaktif'),
-              ],
               onChanged: (value) {
-                selectedStatus = value;
-                _applySearchFilterSort();
+                setState(() {
+                  searchQuery = value;
+                });
+                fetchCCTVs();
               },
-              decoration: const InputDecoration(
-                labelText: 'Filter Status',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: DropdownButtonFormField<String>(
-              value: selectedSort,
-              items: const [
-                DropdownMenuItem(child: Text('Terbaru'), value: 'Terbaru'),
-                DropdownMenuItem(child: Text('A-Z'), value: 'A-Z'),
-                DropdownMenuItem(child: Text('Z-A'), value: 'Z-A'),
-              ],
-              onChanged: (value) {
-                selectedSort = value!;
-                _applySearchFilterSort();
-              },
-              decoration: const InputDecoration(
-                labelText: 'Urutkan',
-                border: OutlineInputBorder(),
-              ),
             ),
           ),
           Expanded(
-            child: ListView.builder(
-              itemCount: filteredCCTV.length,
-              itemBuilder: (context, index) {
-                final cctv = filteredCCTV[index];
-                return Card(
-                  child: ListTile(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => DetailPage(cctv: cctv),
-                        ),
-                      );
-                    },
-                    leading: Image.network(
-                      cctv.imageUrl,
-                      width: 60,
-                      errorBuilder:
-                          (_, __, ___) => const Icon(Icons.image_not_supported),
-                    ),
-                    title: Text(cctv.name),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(cctv.location),
-                        Text(
-                          cctv.status ? 'Aktif' : 'Nonaktif',
-                          style: TextStyle(
-                            color:
-                                cctv.status ? Colors.green : Colors.redAccent,
-                          ),
-                        ),
-                      ],
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit),
-                          onPressed: () async {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => FormPage(cctv: cctv),
-                              ),
-                            );
-                            fetchCCTVs();
-                          },
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed:
-                              () => _showDeleteConfirmation(
+            child:
+                dataCCTV.isEmpty
+                    ? const Center(child: Text('Tidak ada data CCTV'))
+                    : ListView.builder(
+                      itemCount: dataCCTV.length,
+                      itemBuilder: (context, index) {
+                        final cctv = dataCCTV[index];
+                        return Card(
+                          child: ListTile(
+                            leading:
+                                cctv.imageUrl.isNotEmpty
+                                    ? Image.network(
+                                      cctv.imageUrl,
+                                      width: 60,
+                                      errorBuilder:
+                                          (_, __, ___) =>
+                                              const Icon(Icons.image),
+                                    )
+                                    : const Icon(Icons.image),
+                            title: Text(cctv.name),
+                            subtitle: Text(
+                              '${cctv.location}\nStatus: ${cctv.status ? "Aktif" : "Non-Aktif"}',
+                            ),
+                            isThreeLine: true,
+                            onTap: () {
+                              Navigator.push(
                                 context,
-                                cctv.id ?? '',
-                              ),
-                        ),
-                      ],
+                                MaterialPageRoute(
+                                  builder: (_) => DetailPage(cctv: cctv),
+                                ),
+                              );
+                            },
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (isAdmin || isOperator)
+                                  IconButton(
+                                    icon: const Icon(Icons.edit),
+                                    onPressed: () async {
+                                      await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => FormPage(cctv: cctv),
+                                        ),
+                                      );
+                                      fetchCCTVs();
+                                    },
+                                  ),
+                                if (isAdmin)
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.delete,
+                                      color: Colors.red,
+                                    ),
+                                    onPressed: () {
+                                      deleteCCTV(cctv.id, cctv.name);
+                                    },
+                                  ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                  ),
-                );
-              },
-            ),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        child: const Icon(Icons.add),
-        onPressed: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const FormPage()),
-          );
-          fetchCCTVs();
-        },
-      ),
+      floatingActionButton:
+          (isAdmin || isOperator)
+              ? FloatingActionButton(
+                child: const Icon(Icons.add),
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const FormPage()),
+                  );
+                  fetchCCTVs();
+                },
+              )
+              : null,
     );
   }
 }

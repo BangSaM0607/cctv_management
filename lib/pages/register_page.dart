@@ -1,7 +1,7 @@
+import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'login_page.dart';
-import 'package:awesome_dialog/awesome_dialog.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -11,66 +11,96 @@ class RegisterPage extends StatefulWidget {
 }
 
 class _RegisterPageState extends State<RegisterPage> {
-  final supabase = Supabase.instance.client;
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
 
-  Future<void> register() async {
+  Future<void> registerUser() async {
+    final email = emailController.text.trim();
+    final password = passwordController.text.trim();
+
     try {
-      final response = await supabase.auth.signUp(
-        email: emailController.text,
-        password: passwordController.text,
+      // Tentukan role otomatis
+      String userRole = 'operator';
+
+      if (email.endsWith('@yourcompany.com')) {
+        userRole = 'admin';
+      } else if (email.endsWith('@partner.com')) {
+        userRole = 'viewer';
+      }
+
+      // Register + metadata role
+      final response = await Supabase.instance.client.auth.signUp(
+        email: email,
+        password: password,
+        data: {'role': userRole},
       );
 
       if (response.user != null) {
-        _showDialog('Registrasi berhasil, silakan login!', DialogType.success);
-        await Future.delayed(const Duration(seconds: 2));
         if (!mounted) return;
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const LoginPage()),
-        );
-      } else {
-        _showDialog('Registrasi gagal!', DialogType.error);
+        AwesomeDialog(
+          context: context,
+          dialogType: DialogType.success,
+          title: 'Berhasil!',
+          desc: 'Register berhasil sebagai $userRole.\nSilakan login.',
+          btnOkOnPress: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const LoginPage()),
+            );
+          },
+        ).show();
       }
-    } on AuthException catch (error) {
-      _showDialog('Error: ${error.message}', DialogType.error);
-    } catch (error) {
-      _showDialog('Terjadi error: $error', DialogType.warning);
+    } catch (e) {
+      if (!mounted) return;
+      AwesomeDialog(
+        context: context,
+        dialogType: DialogType.error,
+        title: 'Error',
+        desc: e.toString(),
+      ).show();
     }
-  }
-
-  void _showDialog(String message, DialogType type) {
-    AwesomeDialog(
-      context: context,
-      dialogType: type,
-      animType: AnimType.scale,
-      title: 'Informasi',
-      desc: message,
-      btnOkOnPress: () {},
-    ).show();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Daftar Akun')),
+      appBar: AppBar(title: const Text('Register')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             TextField(
               controller: emailController,
-              decoration: const InputDecoration(labelText: 'Email'),
+              decoration: const InputDecoration(
+                labelText: 'Email',
+                prefixIcon: Icon(Icons.email),
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: passwordController,
               obscureText: true,
-              decoration: const InputDecoration(labelText: 'Password'),
+              decoration: const InputDecoration(
+                labelText: 'Password',
+                prefixIcon: Icon(Icons.lock),
+              ),
             ),
             const SizedBox(height: 20),
-            ElevatedButton(onPressed: register, child: const Text('Daftar')),
+            ElevatedButton(
+              onPressed: registerUser,
+              child: const Text('Register'),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginPage()),
+                );
+              },
+              child: const Text('Sudah punya akun? Login disini'),
+            ),
           ],
         ),
       ),

@@ -1,16 +1,18 @@
 class CCTV {
-  final String? id;
+  final String id;
   final String name;
   final String location;
   final String imageUrl;
   final bool status;
+  final String userId;
 
   CCTV({
-    this.id,
+    required this.id,
     required this.name,
     required this.location,
     required this.imageUrl,
     required this.status,
+    required this.userId,
   });
 
   factory CCTV.fromMap(Map<String, dynamic> map) {
@@ -20,16 +22,18 @@ class CCTV {
       location: map['location'],
       imageUrl: map['image_url'],
       status: map['status'] ?? false,
+      userId: map['user_id'],
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
-      if (id != null) 'id': id,
+      'id': id,
       'name': name,
       'location': location,
       'image_url': imageUrl,
       'status': status,
+      'user_id': userId,
     };
   }
 }
