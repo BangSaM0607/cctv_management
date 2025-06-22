@@ -45,7 +45,7 @@ class _FormPageState extends State<FormPage> {
   }
 
   Future<String> _uploadImage(File image) async {
-    final fileName = const Uuid().v4();
+    final fileName = const Uuid().v4(); // nama file unik
     final fileExt = image.path.split('.').last;
     final path = 'cctv/$fileName.$fileExt';
 
@@ -76,7 +76,7 @@ class _FormPageState extends State<FormPage> {
       await supabase.from('data_cctv').insert(data);
       print('✅ Data baru ditambahkan');
     } else {
-      await supabase.from('data_cctv').update(data).eq('id', widget.cctv!.id);
+      await supabase.from('data_cctv').update(data).eq('id', widget.cctv!.id!);
       print('✅ Data ${widget.cctv!.id} berhasil diupdate');
     }
 
