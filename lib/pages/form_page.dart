@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -8,7 +9,6 @@ import '../utils/insert_log.dart';
 
 class FormPage extends StatefulWidget {
   final CCTV? cctv;
-
   const FormPage({super.key, this.cctv});
 
   @override
@@ -19,9 +19,9 @@ class _FormPageState extends State<FormPage> {
   final supabase = Supabase.instance.client;
   final nameController = TextEditingController();
   final locationController = TextEditingController();
-  bool status = false;
+  bool status = true;
   File? imageFile;
-  String? imageUrl;
+  bool isLoading = false;
 
   @override
   void initState() {
@@ -30,75 +30,112 @@ class _FormPageState extends State<FormPage> {
       nameController.text = widget.cctv!.name;
       locationController.text = widget.cctv!.location;
       status = widget.cctv!.status;
-      imageUrl = widget.cctv!.imageUrl;
     }
   }
 
   Future<void> pickImage() async {
-    final pickedFile = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-    );
-    if (pickedFile != null) {
+    final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+    if (picked != null) {
       setState(() {
-        imageFile = File(pickedFile.path);
+        imageFile = File(picked.path);
       });
     }
   }
 
-  Future<String> uploadImage(File file) async {
-    final fileName = const Uuid().v4();
+  Future<String> uploadImage(String uuid) async {
+    if (imageFile == null) return widget.cctv?.imageUrl ?? '';
+
+    final bytes = await imageFile!.readAsBytes();
+    final fileName = 'cctv_images/$uuid.jpg';
+
     await supabase.storage
         .from('cctv_images')
-        .upload('public/$fileName.jpg', file);
+        .uploadBinary(
+          fileName,
+          bytes,
+          fileOptions: const FileOptions(upsert: true),
+        );
 
     final publicUrl = supabase.storage
         .from('cctv_images')
-        .getPublicUrl('public/$fileName.jpg');
-
+        .getPublicUrl(fileName);
     return publicUrl;
   }
 
   Future<void> saveData() async {
-    final userId = supabase.auth.currentUser!.id;
-
-    String finalImageUrl = imageUrl ?? '';
-    if (imageFile != null) {
-      finalImageUrl = await uploadImage(imageFile!);
+    if (nameController.text.isEmpty || locationController.text.isEmpty) {
+      AwesomeDialog(
+        context: context,
+        dialogType: DialogType.warning,
+        title: 'Peringatan',
+        desc: 'Nama gedung dan lokasi tidak boleh kosong!',
+      ).show();
+      return;
     }
 
-    if (widget.cctv == null) {
-      final newId = const Uuid().v4();
+    setState(() {
+      isLoading = true;
+    });
 
-      await supabase.from('data_cctv').insert({
-        'id': newId,
-        'name': nameController.text,
-        'location': locationController.text,
-        'image_url': finalImageUrl,
-        'status': status,
-        'user_id': userId,
+    try {
+      String uuid = widget.cctv?.id ?? const Uuid().v4();
+      String imageUrl = await uploadImage(uuid);
+
+      if (widget.cctv == null) {
+        // INSERT
+        await supabase.from('data_cctv').insert({
+          'id': uuid,
+          'name': nameController.text,
+          'location': locationController.text,
+          'image_url': imageUrl,
+          'status': status,
+        });
+        await insertLog(
+          'add',
+          'Tambah CCTV: ${nameController.text}',
+          DateTime.now().toIso8601String(),
+        );
+      } else {
+        // UPDATE
+        await supabase
+            .from('data_cctv')
+            .update({
+              'name': nameController.text,
+              'location': locationController.text,
+              'image_url': imageUrl,
+              'status': status,
+            })
+            .eq('id', widget.cctv!.id);
+        await insertLog(
+          'edit',
+          'Edit CCTV: ${nameController.text}',
+          DateTime.now().toIso8601String(),
+        );
+      }
+
+      if (!mounted) return;
+      AwesomeDialog(
+        context: context,
+        dialogType: DialogType.success,
+        title: 'Sukses',
+        desc: 'Data berhasil disimpan',
+        btnOkOnPress: () {
+          Navigator.pop(context);
+        },
+      ).show();
+    } catch (e) {
+      if (!mounted) return;
+      AwesomeDialog(
+        context: context,
+        dialogType: DialogType.error,
+        title: 'Error',
+        desc: e.toString(),
+      ).show();
+    } finally {
+      setState(() {
+        isLoading = false;
       });
-
-      await insertLog('insert', newId, 'Tambah CCTV: ${nameController.text}');
-    } else {
-      await supabase
-          .from('data_cctv')
-          .update({
-            'name': nameController.text,
-            'location': locationController.text,
-            'image_url': finalImageUrl,
-            'status': status,
-          })
-          .eq('id', widget.cctv!.id);
-
-      await insertLog(
-        'update',
-        widget.cctv!.id,
-        'Update CCTV: ${nameController.text}',
-      );
     }
-
-    if (!mounted) return;
-    Navigator.pop(context);
   }
 
   @override
@@ -107,46 +144,55 @@ class _FormPageState extends State<FormPage> {
       appBar: AppBar(
         title: Text(widget.cctv == null ? 'Tambah CCTV' : 'Edit CCTV'),
       ),
-      body: SingleChildScrollView(
+      body: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
+        child: ListView(
           children: [
             TextField(
               controller: nameController,
-              decoration: const InputDecoration(labelText: 'Nama CCTV'),
+              decoration: const InputDecoration(
+                labelText: 'Nama Gedung',
+                prefixIcon: Icon(Icons.business),
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: locationController,
-              decoration: const InputDecoration(labelText: 'Lokasi'),
+              decoration: const InputDecoration(
+                labelText: 'Lokasi',
+                prefixIcon: Icon(Icons.location_on),
+              ),
             ),
             const SizedBox(height: 12),
-            SwitchListTile(
-              title: const Text('Status Aktif'),
-              value: status,
-              onChanged: (value) {
-                setState(() {
-                  status = value;
-                });
-              },
+            Row(
+              children: [
+                const Text('Status: '),
+                Checkbox(
+                  value: status,
+                  onChanged: (value) {
+                    setState(() {
+                      status = value ?? true;
+                    });
+                  },
+                ),
+                Text(status ? 'Aktif' : 'Non-Aktif'),
+              ],
             ),
             const SizedBox(height: 12),
-            ElevatedButton.icon(
+            TextButton.icon(
               icon: const Icon(Icons.image),
               label: const Text('Pilih Gambar'),
               onPressed: pickImage,
             ),
-            if (imageFile != null)
-              Image.file(imageFile!, height: 150)
-            else if (imageUrl != null && imageUrl!.isNotEmpty)
-              Image.network(imageUrl!, height: 150)
-            else
-              const SizedBox(
-                height: 150,
-                child: Center(child: Text('Belum ada gambar')),
-              ),
+            if (imageFile != null) Image.file(imageFile!, height: 150),
+            if (widget.cctv?.imageUrl.isNotEmpty == true && imageFile == null)
+              Image.network(widget.cctv!.imageUrl, height: 150),
             const SizedBox(height: 20),
-            ElevatedButton(child: const Text('Simpan'), onPressed: saveData),
+            ElevatedButton.icon(
+              onPressed: isLoading ? null : saveData,
+              icon: const Icon(Icons.save),
+              label: Text(isLoading ? 'Menyimpan...' : 'Simpan'),
+            ),
           ],
         ),
       ),
