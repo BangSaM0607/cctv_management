@@ -1,6 +1,7 @@
 import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../widgets/drawer_menu.dart';
 
 class AdminUserPage extends StatefulWidget {
   const AdminUserPage({super.key});
@@ -12,6 +13,7 @@ class AdminUserPage extends StatefulWidget {
 class _AdminUserPageState extends State<AdminUserPage> {
   final supabase = Supabase.instance.client;
   List<dynamic> users = [];
+  bool isLoading = true;
 
   @override
   void initState() {
@@ -20,13 +22,28 @@ class _AdminUserPageState extends State<AdminUserPage> {
   }
 
   Future<void> fetchUsers() async {
+    setState(() {
+      isLoading = true;
+    });
+
     try {
-      final response = await supabase.rpc('get_all_users').select();
+      final List<dynamic> response =
+          await supabase.rpc('get_all_users').select();
       setState(() {
         users = response;
+        isLoading = false;
       });
     } catch (e) {
-      debugPrint('Error fetch users: $e');
+      if (!mounted) return;
+      AwesomeDialog(
+        context: context,
+        dialogType: DialogType.error,
+        title: 'Error',
+        desc: e.toString(),
+      ).show();
+      setState(() {
+        isLoading = false;
+      });
     }
   }
 
@@ -60,10 +77,18 @@ class _AdminUserPageState extends State<AdminUserPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Kelola User & Role')),
+      appBar: AppBar(
+        title: const Text('Kelola User & Role'),
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh), onPressed: fetchUsers),
+        ],
+      ),
+      drawer: const DrawerMenu(),
       body:
-          users.isEmpty
+          isLoading
               ? const Center(child: CircularProgressIndicator())
+              : users.isEmpty
+              ? const Center(child: Text('Tidak ada user'))
               : ListView.builder(
                 itemCount: users.length,
                 itemBuilder: (context, index) {
@@ -72,30 +97,32 @@ class _AdminUserPageState extends State<AdminUserPage> {
                   final role = user['user_metadata']?['role'] ?? 'unknown';
                   final userId = user['id'];
 
-                  return ListTile(
-                    leading: const Icon(Icons.person),
-                    title: Text(email),
-                    subtitle: Text('Role: $role'),
-                    trailing: PopupMenuButton<String>(
-                      onSelected: (value) {
-                        updateRole(userId, value);
-                      },
-                      itemBuilder:
-                          (context) => [
-                            const PopupMenuItem(
-                              value: 'admin',
-                              child: Text('Admin'),
-                            ),
-                            const PopupMenuItem(
-                              value: 'operator',
-                              child: Text('Operator'),
-                            ),
-                            const PopupMenuItem(
-                              value: 'viewer',
-                              child: Text('Viewer'),
-                            ),
-                          ],
-                      child: const Icon(Icons.edit),
+                  return Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.person),
+                      title: Text(email),
+                      subtitle: Text('Role: $role'),
+                      trailing: PopupMenuButton<String>(
+                        onSelected: (value) {
+                          updateRole(userId, value);
+                        },
+                        itemBuilder:
+                            (context) => [
+                              const PopupMenuItem(
+                                value: 'admin',
+                                child: Text('Admin'),
+                              ),
+                              const PopupMenuItem(
+                                value: 'operator',
+                                child: Text('Operator'),
+                              ),
+                              const PopupMenuItem(
+                                value: 'viewer',
+                                child: Text('Viewer'),
+                              ),
+                            ],
+                        child: const Icon(Icons.edit),
+                      ),
                     ),
                   );
                 },

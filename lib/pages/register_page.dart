@@ -22,9 +22,9 @@ class _RegisterPageState extends State<RegisterPage> {
       // Tentukan role otomatis
       String userRole = 'operator';
 
-      if (email.endsWith('@yourcompany.com')) {
+      if (email.endsWith('@smartnet.com')) {
         userRole = 'admin';
-      } else if (email.endsWith('@partner.com')) {
+      } else if (email.endsWith('@user.com')) {
         userRole = 'viewer';
       }
 
