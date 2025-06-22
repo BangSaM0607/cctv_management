@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/cctv.dart';
 import 'form_page.dart';
+import 'login_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -66,7 +67,7 @@ class _HomePageState extends State<HomePage> {
     } else {
       tempList.sort(
         (a, b) => (b.id ?? '').compareTo(a.id ?? ''),
-      ); // Default: created_at DESC
+      ); // created_at DESC
     }
 
     setState(() {
@@ -97,10 +98,8 @@ class _HomePageState extends State<HomePage> {
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
               child: const Text('Hapus'),
               onPressed: () async {
-                Navigator.of(context).pop(); // tutup dialog
-                await deleteCCTV(id); // hapus data
-
-                // Tampilkan Snackbar berhasil
+                Navigator.of(context).pop();
+                await deleteCCTV(id);
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Data CCTV berhasil dihapus!')),
@@ -113,10 +112,24 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<void> _logout() async {
+    await Supabase.instance.client.auth.signOut();
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginPage()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Data CCTV')),
+      appBar: AppBar(
+        title: const Text('Data CCTV'),
+        actions: [
+          IconButton(icon: const Icon(Icons.logout), onPressed: _logout),
+        ],
+      ),
       body: Column(
         children: [
           Padding(
