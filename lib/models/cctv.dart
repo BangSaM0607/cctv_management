@@ -4,7 +4,7 @@ class CCTV {
   final String location;
   final String imageUrl;
   final bool status;
-  final String userId;
+  final DateTime createdAt;
 
   CCTV({
     required this.id,
@@ -12,17 +12,20 @@ class CCTV {
     required this.location,
     required this.imageUrl,
     required this.status,
-    required this.userId,
+    required this.createdAt,
   });
 
   factory CCTV.fromMap(Map<String, dynamic> map) {
     return CCTV(
-      id: map['id'],
-      name: map['name'],
-      location: map['location'],
-      imageUrl: map['image_url'],
+      id: map['id'] ?? '',
+      name: map['name'] ?? '',
+      location: map['location'] ?? '',
+      imageUrl: map['image_url'] ?? '',
       status: map['status'] ?? false,
-      userId: map['user_id'],
+      createdAt:
+          map['created_at'] != null
+              ? DateTime.tryParse(map['created_at']) ?? DateTime.now()
+              : DateTime.now(),
     );
   }
 
@@ -33,7 +36,7 @@ class CCTV {
       'location': location,
       'image_url': imageUrl,
       'status': status,
-      'user_id': userId,
+      'created_at': createdAt.toIso8601String(),
     };
   }
 }

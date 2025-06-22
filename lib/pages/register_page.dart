@@ -1,7 +1,7 @@
 import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'login_page.dart';
+import 'package:cctv_management/pages/login_page.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -11,37 +11,31 @@ class RegisterPage extends StatefulWidget {
 }
 
 class _RegisterPageState extends State<RegisterPage> {
-  final emailController = TextEditingController();
-  final passwordController = TextEditingController();
+  final supabase = Supabase.instance.client;
 
-  Future<void> registerUser() async {
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+  String selectedRole = 'viewer';
+
+  Future<void> register() async {
     final email = emailController.text.trim();
-    final password = passwordController.text.trim();
+    final password = passwordController.text;
 
     try {
-      // Tentukan role otomatis
-      String userRole = 'operator';
-
-      if (email.endsWith('@smartnet.com')) {
-        userRole = 'admin';
-      } else if (email.endsWith('@user.com')) {
-        userRole = 'viewer';
-      }
-
-      // Register + metadata role
-      final response = await Supabase.instance.client.auth.signUp(
+      final response = await supabase.auth.signUp(
         email: email,
         password: password,
-        data: {'role': userRole},
+        data: {
+          'role': selectedRole, // Simpan role ke metadata
+        },
       );
 
       if (response.user != null) {
-        if (!mounted) return;
         AwesomeDialog(
           context: context,
           dialogType: DialogType.success,
-          title: 'Berhasil!',
-          desc: 'Register berhasil sebagai $userRole.\nSilakan login.',
+          title: 'Berhasil daftar!',
+          desc: 'Silakan login dengan email: $email',
           btnOkOnPress: () {
             Navigator.pushReplacement(
               context,
@@ -50,13 +44,21 @@ class _RegisterPageState extends State<RegisterPage> {
           },
         ).show();
       }
+    } on AuthException catch (e) {
+      AwesomeDialog(
+        context: context,
+        dialogType: DialogType.error,
+        title: 'Error',
+        desc: e.message,
+        btnOkOnPress: () {},
+      ).show();
     } catch (e) {
-      if (!mounted) return;
       AwesomeDialog(
         context: context,
         dialogType: DialogType.error,
         title: 'Error',
         desc: e.toString(),
+        btnOkOnPress: () {},
       ).show();
     }
   }
@@ -64,44 +66,58 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Register')),
+      appBar: AppBar(title: const Text('Register Akun')),
       body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TextField(
-              controller: emailController,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                prefixIcon: Icon(Icons.email),
+        padding: const EdgeInsets.all(24),
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              const Icon(Icons.person_add, size: 80),
+              const SizedBox(height: 24),
+              TextField(
+                controller: emailController,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  prefixIcon: Icon(Icons.email),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Password',
-                prefixIcon: Icon(Icons.lock),
+              const SizedBox(height: 16),
+              TextField(
+                controller: passwordController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Password',
+                  prefixIcon: Icon(Icons.lock),
+                ),
               ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: registerUser,
-              child: const Text('Register'),
-            ),
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => const LoginPage()),
-                );
-              },
-              child: const Text('Sudah punya akun? Login disini'),
-            ),
-          ],
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                value: selectedRole,
+                decoration: const InputDecoration(
+                  labelText: 'Pilih Role',
+                  prefixIcon: Icon(Icons.admin_panel_settings),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'admin', child: Text('Admin')),
+                  DropdownMenuItem(value: 'operator', child: Text('Operator')),
+                  DropdownMenuItem(value: 'viewer', child: Text('Viewer')),
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    selectedRole = value!;
+                  });
+                },
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: register,
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                ),
+                child: const Text('Daftar'),
+              ),
+            ],
+          ),
         ),
       ),
     );

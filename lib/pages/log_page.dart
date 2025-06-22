@@ -1,6 +1,6 @@
+// TODO Implement this library.
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../widgets/drawer_menu.dart';
 
 class LogPage extends StatefulWidget {
   const LogPage({super.key});
@@ -11,8 +11,7 @@ class LogPage extends StatefulWidget {
 
 class _LogPageState extends State<LogPage> {
   final supabase = Supabase.instance.client;
-  List<dynamic> logs = [];
-  bool isLoading = true;
+  List<dynamic> logList = [];
 
   @override
   void initState() {
@@ -21,72 +20,35 @@ class _LogPageState extends State<LogPage> {
   }
 
   Future<void> fetchLogs() async {
-    setState(() {
-      isLoading = true;
-    });
-
     final response = await supabase
         .from('logs')
         .select()
         .order('created_at', ascending: false)
-        .limit(100);
+        .limit(50);
 
     setState(() {
-      logs = response;
-      isLoading = false;
+      logList = response;
     });
-  }
-
-  String formatDateTime(String dateTimeStr) {
-    final dt = DateTime.parse(dateTimeStr).toLocal();
-    return '${dt.day.toString().padLeft(2, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.year}  ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Riwayat Log'),
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: fetchLogs),
-        ],
-      ),
-      drawer: const DrawerMenu(),
+      appBar: AppBar(title: const Text('Riwayat Log')),
       body:
-          isLoading
+          logList.isEmpty
               ? const Center(child: CircularProgressIndicator())
-              : logs.isEmpty
-              ? const Center(child: Text('Belum ada log'))
               : ListView.builder(
-                itemCount: logs.length,
+                itemCount: logList.length,
                 itemBuilder: (context, index) {
-                  final log = logs[index];
-                  final userEmail = log['user_email'] ?? '-';
-                  final action = log['action'] ?? '';
-                  final message = log['message'] ?? '';
-                  final createdAt = formatDateTime(log['created_at']);
-
-                  return Card(
-                    child: ListTile(
-                      leading: Icon(
-                        action == 'add'
-                            ? Icons.add
-                            : action == 'edit'
-                            ? Icons.edit
-                            : action == 'delete'
-                            ? Icons.delete
-                            : Icons.info,
-                        color:
-                            action == 'delete'
-                                ? Colors.red
-                                : action == 'edit'
-                                ? Colors.orange
-                                : Colors.green,
-                      ),
-                      title: Text('$action • $createdAt'),
-                      subtitle: Text('$message\n$userEmail'),
-                      isThreeLine: true,
+                  final log = logList[index];
+                  return ListTile(
+                    leading: const Icon(Icons.history),
+                    title: Text('${log['action']} - ${log['message']}'),
+                    subtitle: Text(
+                      'User: ${log['user_email'] ?? '-'}\n${log['created_at'] ?? ''}',
                     ),
+                    isThreeLine: true,
                   );
                 },
               ),

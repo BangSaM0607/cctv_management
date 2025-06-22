@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'pages/home_page.dart';
-import 'pages/login_page.dart';
+import 'package:cctv_management/pages/login_page.dart';
+import 'package:cctv_management/pages/home_page.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   await Supabase.initialize(
     url:
-        'https://lleiuchgukmblykhhduz.supabase.co', // ganti dengan URL project kamu
+        'https://lleiuchgukmblykhhduz.supabase.co', // Ganti dengan URL Supabase kamu
     anonKey:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxsZWl1Y2hndWttYmx5a2hoZHV6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc2MjU1MzYsImV4cCI6MjA2MzIwMTUzNn0.TolJDNpew7JVGe2tP9ngx3BHR97LNNvyZNTALE-cDT8', // ganti dengan anon key project kamu
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxsZWl1Y2hndWttYmx5a2hoZHV6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc2MjU1MzYsImV4cCI6MjA2MzIwMTUzNn0.TolJDNpew7JVGe2tP9ngx3BHR97LNNvyZNTALE-cDT8', // Ganti dengan ANON KEY Supabase kamu
   );
 
   runApp(const MyApp());
@@ -21,16 +20,35 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final session = Supabase.instance.client.auth.currentSession;
-
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
       title: 'CCTV Management',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        useMaterial3: true,
-      ),
-      home: session == null ? const LoginPage() : const HomePage(),
+      theme: ThemeData(primarySwatch: Colors.blue, useMaterial3: true),
+      home: const AuthGate(),
+      debugShowCheckedModeBanner: false,
+    );
+  }
+}
+
+class AuthGate extends StatefulWidget {
+  const AuthGate({super.key});
+
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  final supabase = Supabase.instance.client;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'CCTV Management',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(primarySwatch: Colors.blue),
+      home:
+          Supabase.instance.client.auth.currentUser == null
+              ? const LoginPage()
+              : const HomePage(),
     );
   }
 }
