@@ -93,7 +93,11 @@ class _HomePageState extends State<HomePage> {
 
     if (confirm == true) {
       await supabase.from('data_cctv').delete().eq('id', id);
-      await insertLog('delete', 'Hapus CCTV: $name', '');
+      await insertLog(
+        action: 'delete',
+        message: 'Hapus CCTV: $name',
+        timestamp: DateTime.now().toIso8601String(),
+      );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

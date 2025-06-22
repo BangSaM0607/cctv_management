@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/cctv.dart';
+import '../widgets/drawer_menu.dart';
 
 class DetailPage extends StatelessWidget {
   final CCTV cctv;
@@ -10,44 +11,48 @@ class DetailPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Detail CCTV')),
-      body: SingleChildScrollView(
+      drawer: const DrawerMenu(),
+      body: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
+        child: ListView(
           children: [
-            Image.network(
-              cctv.imageUrl,
-              height: 200,
-              fit: BoxFit.cover,
-              errorBuilder:
-                  (_, __, ___) =>
-                      const Icon(Icons.image_not_supported, size: 100),
+            Center(
+              child:
+                  cctv.imageUrl.isNotEmpty
+                      ? Image.network(
+                        cctv.imageUrl,
+                        height: 200,
+                        errorBuilder:
+                            (_, __, ___) => const Icon(
+                              Icons.image_not_supported,
+                              size: 100,
+                            ),
+                      )
+                      : const Icon(Icons.image, size: 100),
             ),
             const SizedBox(height: 20),
             ListTile(
-              leading: const Icon(Icons.videocam),
-              title: Text(
-                cctv.name,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              leading: const Icon(Icons.business),
+              title: const Text('Nama Gedung'),
+              subtitle: Text(cctv.name),
             ),
+            const Divider(),
             ListTile(
               leading: const Icon(Icons.location_on),
-              title: Text(cctv.location),
+              title: const Text('Lokasi'),
+              subtitle: Text(cctv.location),
             ),
+            const Divider(),
             ListTile(
-              leading: Icon(
-                cctv.status ? Icons.check_circle : Icons.cancel,
-                color: cctv.status ? Colors.green : Colors.red,
-              ),
-              title: Text(
-                cctv.status ? 'Aktif' : 'Nonaktif',
-                style: TextStyle(
-                  color: cctv.status ? Colors.green : Colors.red,
-                ),
-              ),
+              leading: const Icon(Icons.toggle_on),
+              title: const Text('Status'),
+              subtitle: Text(cctv.status ? 'Aktif' : 'Non-Aktif'),
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.calendar_today),
+              title: const Text('ID'),
+              subtitle: Text(cctv.id),
             ),
           ],
         ),

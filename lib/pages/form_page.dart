@@ -91,9 +91,9 @@ class _FormPageState extends State<FormPage> {
           'status': status,
         });
         await insertLog(
-          'add',
-          'Tambah CCTV: ${nameController.text}',
-          DateTime.now().toIso8601String(),
+          action: 'add',
+          message: 'Tambah CCTV: ${nameController.text}',
+          timestamp: DateTime.now().toIso8601String(),
         );
       } else {
         // UPDATE
@@ -101,15 +101,14 @@ class _FormPageState extends State<FormPage> {
             .from('data_cctv')
             .update({
               'name': nameController.text,
-              'location': locationController.text,
               'image_url': imageUrl,
               'status': status,
             })
             .eq('id', widget.cctv!.id);
         await insertLog(
-          'edit',
-          'Edit CCTV: ${nameController.text}',
-          DateTime.now().toIso8601String(),
+          action: 'edit',
+          message: 'Edit CCTV: ${nameController.text}',
+          timestamp: DateTime.now().toIso8601String(),
         );
       }
 
@@ -184,6 +183,7 @@ class _FormPageState extends State<FormPage> {
               label: const Text('Pilih Gambar'),
               onPressed: pickImage,
             ),
+            const SizedBox(height: 8),
             if (imageFile != null) Image.file(imageFile!, height: 150),
             if (widget.cctv?.imageUrl.isNotEmpty == true && imageFile == null)
               Image.network(widget.cctv!.imageUrl, height: 150),

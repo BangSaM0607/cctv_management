@@ -1,10 +1,17 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-Future<void> insertLog(String action, String cctvId, String message) async {
-  await Supabase.instance.client.from('logs').insert({
+Future<void> insertLog({
+  required String action,
+  required String message,
+  required String timestamp,
+}) async {
+  final supabase = Supabase.instance.client;
+  final user = supabase.auth.currentUser;
+
+  await supabase.from('logs').insert({
+    'user_id': user?.id,
+    'user_email': user?.email,
     'action': action,
-    'cctv_id': cctvId,
     'message': message,
-    'user_id': Supabase.instance.client.auth.currentUser?.id,
   });
 }
