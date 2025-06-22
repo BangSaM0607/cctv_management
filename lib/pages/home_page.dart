@@ -15,6 +15,7 @@ class _HomePageState extends State<HomePage> {
   List<CCTV> dataCCTV = [];
   List<CCTV> filteredCCTV = [];
   String searchQuery = '';
+  String? selectedStatus; // 'semua', 'aktif', 'nonaktif'
 
   @override
   void initState() {
@@ -32,26 +33,30 @@ class _HomePageState extends State<HomePage> {
 
     setState(() {
       dataCCTV = cctvList;
-      _applySearch();
+      _applySearchAndFilter();
     });
   }
 
-  void _applySearch() {
+  void _applySearchAndFilter() {
     setState(() {
-      if (searchQuery.isEmpty) {
-        filteredCCTV = dataCCTV;
-      } else {
-        filteredCCTV =
-            dataCCTV.where((cctv) {
-              final nameMatch = cctv.name.toLowerCase().contains(
-                searchQuery.toLowerCase(),
-              );
-              final locationMatch = cctv.location.toLowerCase().contains(
-                searchQuery.toLowerCase(),
-              );
-              return nameMatch || locationMatch;
-            }).toList();
-      }
+      filteredCCTV =
+          dataCCTV.where((cctv) {
+            final nameMatch = cctv.name.toLowerCase().contains(
+              searchQuery.toLowerCase(),
+            );
+            final locationMatch = cctv.location.toLowerCase().contains(
+              searchQuery.toLowerCase(),
+            );
+
+            bool statusMatch = true;
+            if (selectedStatus == 'aktif') {
+              statusMatch = cctv.status == true;
+            } else if (selectedStatus == 'nonaktif') {
+              statusMatch = cctv.status == false;
+            }
+
+            return (nameMatch || locationMatch) && statusMatch;
+          }).toList();
     });
   }
 
@@ -71,11 +76,30 @@ class _HomePageState extends State<HomePage> {
             child: TextField(
               onChanged: (value) {
                 searchQuery = value;
-                _applySearch();
+                _applySearchAndFilter();
               },
               decoration: const InputDecoration(
                 labelText: 'Cari Nama / Lokasi',
                 prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: DropdownButtonFormField<String>(
+              value: selectedStatus,
+              items: const [
+                DropdownMenuItem(child: Text('Semua'), value: null),
+                DropdownMenuItem(child: Text('Aktif'), value: 'aktif'),
+                DropdownMenuItem(child: Text('Nonaktif'), value: 'nonaktif'),
+              ],
+              onChanged: (value) {
+                selectedStatus = value;
+                _applySearchAndFilter();
+              },
+              decoration: const InputDecoration(
+                labelText: 'Filter Status',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -93,7 +117,18 @@ class _HomePageState extends State<HomePage> {
                       errorBuilder: (_, __, ___) => const Icon(Icons.image),
                     ),
                     title: Text(cctv.name),
-                    subtitle: Text(cctv.location),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(cctv.location),
+                        Text(
+                          cctv.status ? 'Aktif' : 'Nonaktif',
+                          style: TextStyle(
+                            color: cctv.status ? Colors.green : Colors.red,
+                          ),
+                        ),
+                      ],
+                    ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
