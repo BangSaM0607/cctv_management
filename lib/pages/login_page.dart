@@ -16,20 +16,46 @@ class _LoginPageState extends State<LoginPage> {
   final passwordController = TextEditingController();
 
   Future<void> login() async {
-    final response = await supabase.auth.signInWithPassword(
-      email: emailController.text,
-      password: passwordController.text,
-    );
+    try {
+      final response = await supabase.auth.signInWithPassword(
+        email: emailController.text,
+        password: passwordController.text,
+      );
 
-    if (response.session != null) {
-      Navigator.pushReplacement(
+      if (response.session != null) {
+        // Login berhasil
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Login berhasil!')));
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomePage()),
+        );
+      } else {
+        // Login gagal
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Login gagal, cek email & password!')),
+        );
+      }
+    } on AuthException catch (error) {
+      if (!mounted) return;
+      String message = 'Login gagal: ${error.message}';
+      if (error.message.contains('Invalid login credentials')) {
+        message = 'Email atau password salah!';
+      } else if (error.message.contains('User not found')) {
+        message = 'Email tidak terdaftar!';
+      }
+      ScaffoldMessenger.of(
         context,
-        MaterialPageRoute(builder: (_) => const HomePage()),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Login gagal, cek email / password')),
-      );
+      ).showSnackBar(SnackBar(content: Text(message)));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Terjadi error: $error')));
     }
   }
 
