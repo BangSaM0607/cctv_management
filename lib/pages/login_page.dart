@@ -12,28 +12,34 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final supabase = Supabase.instance.client;
+  final supabase = Supabase.instance.client; // Inisialisasi Supabase client
 
-  final TextEditingController emailController = TextEditingController();
-  final TextEditingController passwordController = TextEditingController();
+  final TextEditingController emailController =
+      TextEditingController(); // Controller untuk input email
+  final TextEditingController passwordController =
+      TextEditingController(); // Controller untuk input password
 
+  // Fungsi untuk proses login user
   Future<void> login() async {
     final email = emailController.text.trim();
     final password = passwordController.text;
 
     try {
+      // Proses login ke Supabase
       final response = await supabase.auth.signInWithPassword(
         email: email,
         password: password,
       );
 
       if (response.user != null) {
+        // Jika login berhasil, tampilkan dialog sukses
         AwesomeDialog(
           context: context,
           dialogType: DialogType.success,
           title: 'Login berhasil!',
           desc: 'Selamat datang, ${response.user!.email}',
           btnOkOnPress: () {
+            // Navigasi ke halaman HomePage setelah login
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (_) => const HomePage()),
@@ -41,6 +47,7 @@ class _LoginPageState extends State<LoginPage> {
           },
         ).show();
       } else {
+        // Jika login gagal, tampilkan dialog error
         AwesomeDialog(
           context: context,
           dialogType: DialogType.error,
@@ -50,6 +57,7 @@ class _LoginPageState extends State<LoginPage> {
         ).show();
       }
     } on AuthException catch (e) {
+      // Penanganan error autentikasi
       String message = 'Terjadi kesalahan!';
       if (e.message.contains('Invalid login credentials')) {
         message = 'Email atau password salah!';
@@ -65,6 +73,7 @@ class _LoginPageState extends State<LoginPage> {
         btnOkOnPress: () {},
       ).show();
     } catch (e) {
+      // Penanganan error lain
       AwesomeDialog(
         context: context,
         dialogType: DialogType.error,
@@ -85,7 +94,7 @@ class _LoginPageState extends State<LoginPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.videocam, size: 80),
+                const Icon(Icons.videocam, size: 80), // Icon aplikasi
                 const SizedBox(height: 24),
                 const Text(
                   'Login CCTV Management',
@@ -102,7 +111,7 @@ class _LoginPageState extends State<LoginPage> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: passwordController,
-                  obscureText: true,
+                  obscureText: true, // Sembunyikan input password
                   decoration: const InputDecoration(
                     labelText: 'Password',
                     prefixIcon: Icon(Icons.lock),
@@ -110,7 +119,7 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton(
-                  onPressed: login,
+                  onPressed: login, // Panggil fungsi login saat ditekan
                   style: ElevatedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 50),
                   ),
@@ -119,6 +128,7 @@ class _LoginPageState extends State<LoginPage> {
                 const SizedBox(height: 16),
                 TextButton(
                   onPressed: () {
+                    // Navigasi ke halaman register jika belum punya akun
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const RegisterPage()),

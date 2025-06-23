@@ -10,7 +10,7 @@ import 'package:cctv_management/models/cctv.dart';
 import 'package:cctv_management/utils/insert_log.dart';
 
 class FormPage extends StatefulWidget {
-  final CCTV? cctv; // << Tambahkan parameter
+  final CCTV? cctv; // Data CCTV yang akan diedit (jika ada)
 
   const FormPage({super.key, this.cctv});
 
@@ -19,20 +19,22 @@ class FormPage extends StatefulWidget {
 }
 
 class _FormPageState extends State<FormPage> {
-  final supabase = Supabase.instance.client;
-  final _formKey = GlobalKey<FormState>();
+  final supabase = Supabase.instance.client; // Inisialisasi Supabase client
+  final _formKey = GlobalKey<FormState>(); // Key untuk form validasi
 
-  File? _pickedImage;
-  Uint8List? _webImage;
-  String? _imageUrl;
+  File? _pickedImage; // Untuk gambar yang dipilih di mobile
+  Uint8List? _webImage; // Untuk gambar yang dipilih di web
+  String? _imageUrl; // URL gambar yang sudah diupload
 
-  final _nameController = TextEditingController();
-  final _locationController = TextEditingController();
-  bool _status = true;
+  final _nameController = TextEditingController(); // Controller nama CCTV
+  final _locationController = TextEditingController(); // Controller lokasi CCTV
+  bool _status = true; // Status aktif/non-aktif
+  bool _isSaving = false; // Status loading saat simpan
 
   @override
   void initState() {
     super.initState();
+    // Jika edit, isi field dengan data lama
     if (widget.cctv != null) {
       _nameController.text = widget.cctv!.name;
       _locationController.text = widget.cctv!.location;
@@ -41,6 +43,7 @@ class _FormPageState extends State<FormPage> {
     }
   }
 
+  // Fungsi untuk memilih gambar dari galeri
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
@@ -59,25 +62,28 @@ class _FormPageState extends State<FormPage> {
     }
   }
 
+  // Fungsi untuk upload gambar ke Supabase Storage
   Future<String?> _uploadImage() async {
     try {
-      final fileName = const Uuid().v4() + '.jpg';
+      final fileName = const Uuid().v4() + '.jpg'; // Nama file unik
       final storageRef = supabase.storage.from('cctv-images');
 
       if (kIsWeb && _webImage != null) {
-        await storageRef.uploadBinary(fileName, _webImage!);
+        await storageRef.uploadBinary(fileName, _webImage!); // Upload di web
       } else if (_pickedImage != null) {
-        await storageRef.upload(fileName, _pickedImage!);
+        await storageRef.upload(fileName, _pickedImage!); // Upload di mobile
       } else {
-        return _imageUrl; // Tidak upload ulang → pakai gambar lama
+        return _imageUrl; // Jika tidak ada gambar baru, pakai gambar lama
       }
 
+      // Dapatkan signed URL untuk gambar yang diupload
       final signedUrlResp = await storageRef.createSignedUrl(
         fileName,
-        3600 * 24 * 7,
+        3600 * 24 * 7, // Berlaku 7 hari
       );
       return signedUrlResp;
     } catch (e) {
+      // Tampilkan pesan error jika gagal upload
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Gagal upload gambar: $e')));
@@ -85,13 +91,18 @@ class _FormPageState extends State<FormPage> {
     }
   }
 
+  // Fungsi untuk menyimpan data (insert/update)
   Future<void> _saveData() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) return; // Validasi form
 
-    String? imageUrl = await _uploadImage();
+    setState(() {
+      _isSaving = true; // Tampilkan loading
+    });
+
+    String? imageUrl = await _uploadImage(); // Upload gambar jika ada
 
     if (widget.cctv == null) {
-      // INSERT (tambah data)
+      // INSERT data baru
       final id = const Uuid().v4();
       await supabase.from('data_cctv').insert({
         'id': id,
@@ -101,9 +112,12 @@ class _FormPageState extends State<FormPage> {
         'status': _status,
         'created_at': DateTime.now().toIso8601String(),
       });
-      await insertLog(action: 'insert', message: 'Tambah CCTV id=$id');
+      await insertLog(
+        action: 'insert',
+        message: 'Tambah CCTV id=$id',
+      ); // Catat log insert
     } else {
-      // UPDATE (edit data)
+      // UPDATE data lama
       await supabase
           .from('data_cctv')
           .update({
@@ -115,13 +129,18 @@ class _FormPageState extends State<FormPage> {
           .eq('id', widget.cctv!.id);
       await insertLog(
         action: 'update',
-        message: 'Update CCTV id=${widget.cctv!.id}',
+        message: 'Update CCTV id=${widget.cctv!.id}', // Catat log update
       );
     }
 
-    if (mounted) Navigator.pop(context, true);
+    setState(() {
+      _isSaving = false; // Sembunyikan loading
+    });
+
+    if (mounted) Navigator.pop(context, true); // Kembali ke halaman sebelumnya
   }
 
+  // Widget untuk preview gambar yang dipilih/diupload
   Widget _buildImagePreview() {
     if (kIsWeb) {
       if (_webImage != null) {
@@ -137,6 +156,7 @@ class _FormPageState extends State<FormPage> {
       return Image.network(_imageUrl!, height: 200, fit: BoxFit.cover);
     }
 
+    // Jika belum ada gambar, tampilkan icon kamera
     return Container(
       height: 200,
       color: Colors.grey[300],
@@ -146,7 +166,7 @@ class _FormPageState extends State<FormPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isEdit = widget.cctv != null;
+    final isEdit = widget.cctv != null; // Cek mode edit/tambah
 
     return Scaffold(
       appBar: AppBar(title: Text(isEdit ? 'Edit CCTV' : 'Tambah CCTV')),
@@ -156,7 +176,10 @@ class _FormPageState extends State<FormPage> {
           key: _formKey,
           child: ListView(
             children: [
-              GestureDetector(onTap: _pickImage, child: _buildImagePreview()),
+              GestureDetector(
+                onTap: _pickImage,
+                child: _buildImagePreview(),
+              ), // Pilih gambar
               const SizedBox(height: 16),
               TextFormField(
                 controller: _nameController,
@@ -189,8 +212,15 @@ class _FormPageState extends State<FormPage> {
               ),
               const SizedBox(height: 16),
               ElevatedButton(
-                onPressed: _saveData,
-                child: Text(isEdit ? 'Update' : 'Simpan'),
+                onPressed: _isSaving ? null : _saveData, // Simpan data
+                child:
+                    _isSaving
+                        ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                        : Text(isEdit ? 'Update' : 'Simpan'),
               ),
             ],
           ),

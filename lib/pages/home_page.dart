@@ -14,20 +14,21 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final supabase = Supabase.instance.client;
-  List<CCTV> dataCCTV = [];
-  String searchQuery = '';
-  String sortOrder = 'created_at_desc';
-  String userRole = '';
-  bool isLoading = false;
+  final supabase = Supabase.instance.client; // Inisialisasi Supabase client
+  List<CCTV> dataCCTV = []; // List data CCTV
+  String searchQuery = ''; // Query pencarian
+  String sortOrder = 'created_at_desc'; // Urutan sorting default
+  String userRole = ''; // Role user login
+  bool isLoading = false; // Status loading
 
   @override
   void initState() {
     super.initState();
-    fetchUserRole();
-    fetchCCTVs();
+    fetchUserRole(); // Ambil role user saat init
+    fetchCCTVs(); // Ambil data CCTV saat init
   }
 
+  // Ambil role user dari metadata Supabase
   Future<void> fetchUserRole() async {
     final user = supabase.auth.currentUser;
     final metadata = user?.userMetadata;
@@ -35,14 +36,16 @@ class _HomePageState extends State<HomePage> {
     setState(() {});
   }
 
+  // Ambil data CCTV dari Supabase
   Future<void> fetchCCTVs() async {
     setState(() {
-      isLoading = true;
+      isLoading = true; // Tampilkan loading
     });
 
     try {
       dynamic query = supabase.from('data_cctv').select();
 
+      // Sorting data sesuai pilihan user
       if (sortOrder == 'az') {
         query = query.order('name', ascending: true);
       } else if (sortOrder == 'za') {
@@ -54,20 +57,24 @@ class _HomePageState extends State<HomePage> {
       final response = await query;
 
       if (response is List) {
-        dataCCTV = response.map((e) => CCTV.fromMap(e)).toList();
+        dataCCTV =
+            response
+                .map((e) => CCTV.fromMap(e))
+                .toList(); // Mapping data ke model CCTV
       } else {
         dataCCTV = [];
       }
     } catch (e) {
       dataCCTV = [];
-      print('Error fetching data: $e');
+      print('Error fetching data: $e'); // Tampilkan error jika gagal fetch
     } finally {
       setState(() {
-        isLoading = false;
+        isLoading = false; // Sembunyikan loading
       });
     }
   }
 
+  // Fungsi hapus data CCTV
   Future<void> deleteCCTV(String id) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -78,21 +85,28 @@ class _HomePageState extends State<HomePage> {
             actions: [
               TextButton(
                 child: const Text('Batal'),
-                onPressed: () => Navigator.pop(context, false),
+                onPressed: () => Navigator.pop(context, false), // Batal hapus
               ),
               TextButton(
                 child: const Text('Hapus'),
-                onPressed: () => Navigator.pop(context, true),
+                onPressed:
+                    () => Navigator.pop(context, true), // Konfirmasi hapus
               ),
             ],
           ),
     );
 
-    if (confirm != true) return;
+    if (confirm != true) return; // Jika batal, keluar fungsi
 
     try {
-      await supabase.from('data_cctv').delete().eq('id', id);
-      await insertLog(action: 'delete', message: 'Hapus CCTV id=$id');
+      await supabase
+          .from('data_cctv')
+          .delete()
+          .eq('id', id); // Hapus data di Supabase
+      await insertLog(
+        action: 'delete',
+        message: 'Hapus CCTV id=$id',
+      ); // Catat log penghapusan
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -107,17 +121,18 @@ class _HomePageState extends State<HomePage> {
         ),
       );
 
-      fetchCCTVs();
+      fetchCCTVs(); // Refresh data setelah hapus
     } catch (e) {
       print('Error deleting data: $e');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Gagal menghapus data: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal menghapus data: $e')),
+      ); // Tampilkan error jika gagal hapus
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Filter data CCTV sesuai pencarian
     final filteredCCTV =
         dataCCTV.where((cctv) {
           final query = searchQuery.toLowerCase();
@@ -129,12 +144,15 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Text('Data CCTV'),
         actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: fetchCCTVs),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: fetchCCTVs,
+          ), // Tombol refresh data
           PopupMenuButton<String>(
             icon: const Icon(Icons.sort),
             onSelected: (value) {
               setState(() {
-                sortOrder = value;
+                sortOrder = value; // Ubah urutan sorting
               });
               fetchCCTVs();
             },
@@ -151,6 +169,7 @@ class _HomePageState extends State<HomePage> {
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
+              // Konfirmasi logout
               final confirm = await showDialog<bool>(
                 context: context,
                 builder:
@@ -171,19 +190,24 @@ class _HomePageState extends State<HomePage> {
               );
 
               if (confirm == true) {
-                await supabase.auth.signOut();
+                await supabase.auth.signOut(); // Proses logout
                 if (mounted) {
-                  Navigator.pushReplacementNamed(context, '/');
+                  Navigator.pushReplacementNamed(
+                    context,
+                    '/',
+                  ); // Kembali ke halaman utama
                 }
               }
             },
           ),
         ],
       ),
-      drawer: const DrawerMenu(),
+      drawer: const DrawerMenu(), // Drawer menu samping
       body:
           isLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? const Center(
+                child: CircularProgressIndicator(),
+              ) // Loading saat fetch data
               : Column(
                 children: [
                   Padding(
@@ -196,7 +220,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                       onChanged: (value) {
                         setState(() {
-                          searchQuery = value;
+                          searchQuery = value; // Update query pencarian
                         });
                       },
                     ),
@@ -204,7 +228,9 @@ class _HomePageState extends State<HomePage> {
                   Expanded(
                     child:
                         filteredCCTV.isEmpty
-                            ? const Center(child: Text('Belum ada data CCTV'))
+                            ? const Center(
+                              child: Text('Belum ada data CCTV'),
+                            ) // Jika data kosong
                             : ListView.builder(
                               itemCount: filteredCCTV.length,
                               itemBuilder: (context, index) {
@@ -221,12 +247,16 @@ class _HomePageState extends State<HomePage> {
                                               cctv.imageUrl,
                                               width: 60,
                                             )
-                                            : const Icon(Icons.image, size: 40),
+                                            : const Icon(
+                                              Icons.image,
+                                              size: 40,
+                                            ), // Tampilkan gambar atau icon
                                     title: Text(cctv.name),
                                     subtitle: Text(
                                       '${cctv.location} • ${cctv.status ? 'Aktif' : 'Non-aktif'}',
                                     ),
                                     onTap: () {
+                                      // Navigasi ke halaman detail CCTV
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
@@ -243,7 +273,9 @@ class _HomePageState extends State<HomePage> {
                                                 color: Colors.red,
                                               ),
                                               onPressed:
-                                                  () => deleteCCTV(cctv.id),
+                                                  () => deleteCCTV(
+                                                    cctv.id,
+                                                  ), // Hapus data
                                             )
                                             : null,
                                   ),
@@ -258,11 +290,12 @@ class _HomePageState extends State<HomePage> {
               ? FloatingActionButton(
                 child: const Icon(Icons.add),
                 onPressed: () async {
+                  // Navigasi ke halaman tambah data CCTV
                   await Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const FormPage()),
                   );
-                  fetchCCTVs();
+                  fetchCCTVs(); // Refresh data setelah tambah
                 },
               )
               : null,

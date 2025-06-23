@@ -11,17 +11,21 @@ class RegisterPage extends StatefulWidget {
 }
 
 class _RegisterPageState extends State<RegisterPage> {
-  final supabase = Supabase.instance.client;
+  final supabase = Supabase.instance.client; // Inisialisasi Supabase client
 
-  final TextEditingController emailController = TextEditingController();
-  final TextEditingController passwordController = TextEditingController();
-  String selectedRole = 'viewer';
+  final TextEditingController emailController =
+      TextEditingController(); // Controller untuk input email
+  final TextEditingController passwordController =
+      TextEditingController(); // Controller untuk input password
+  String selectedRole = 'viewer'; // Default role user baru
 
+  // Fungsi untuk proses registrasi user baru
   Future<void> register() async {
     final email = emailController.text.trim();
     final password = passwordController.text;
 
     try {
+      // Proses sign up ke Supabase
       final response = await supabase.auth.signUp(
         email: email,
         password: password,
@@ -30,6 +34,7 @@ class _RegisterPageState extends State<RegisterPage> {
         },
       );
 
+      // Jika berhasil, tampilkan dialog sukses
       if (response.user != null) {
         AwesomeDialog(
           context: context,
@@ -45,6 +50,7 @@ class _RegisterPageState extends State<RegisterPage> {
         ).show();
       }
     } on AuthException catch (e) {
+      // Jika error autentikasi, tampilkan dialog error
       AwesomeDialog(
         context: context,
         dialogType: DialogType.error,
@@ -53,6 +59,7 @@ class _RegisterPageState extends State<RegisterPage> {
         btnOkOnPress: () {},
       ).show();
     } catch (e) {
+      // Jika error lain, tampilkan dialog error
       AwesomeDialog(
         context: context,
         dialogType: DialogType.error,
@@ -72,7 +79,7 @@ class _RegisterPageState extends State<RegisterPage> {
         child: SingleChildScrollView(
           child: Column(
             children: [
-              const Icon(Icons.person_add, size: 80),
+              const Icon(Icons.person_add, size: 80), // Icon register
               const SizedBox(height: 24),
               TextField(
                 controller: emailController,
@@ -91,6 +98,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
               ),
               const SizedBox(height: 16),
+              // Dropdown untuk memilih role user
               DropdownButtonFormField<String>(
                 value: selectedRole,
                 decoration: const InputDecoration(
@@ -109,8 +117,9 @@ class _RegisterPageState extends State<RegisterPage> {
                 },
               ),
               const SizedBox(height: 24),
+              // Tombol daftar
               ElevatedButton(
-                onPressed: register,
+                onPressed: register, // Panggil fungsi register saat ditekan
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 50),
                 ),

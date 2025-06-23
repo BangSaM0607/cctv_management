@@ -1,10 +1,10 @@
 class CCTV {
-  final String id;
-  final String name;
-  final String location;
-  final String imageUrl;
-  final bool status;
-  final DateTime createdAt;
+  final String id; // ID unik CCTV
+  final String name; // Nama CCTV
+  final String location; // Lokasi CCTV
+  final String imageUrl; // URL gambar CCTV
+  final bool status; // Status aktif/non-aktif
+  final DateTime createdAt; // Tanggal dibuat
 
   CCTV({
     required this.id,
@@ -15,6 +15,7 @@ class CCTV {
     required this.createdAt,
   });
 
+  // Factory method untuk membuat objek CCTV dari Map (misal dari Supabase)
   factory CCTV.fromMap(Map<String, dynamic> map) {
     return CCTV(
       id: map['id'] ?? '',
@@ -29,6 +30,7 @@ class CCTV {
     );
   }
 
+  // Konversi objek CCTV ke Map (misal untuk insert/update ke Supabase)
   Map<String, dynamic> toMap() {
     return {
       'id': id,

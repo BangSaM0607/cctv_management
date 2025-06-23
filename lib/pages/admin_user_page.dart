@@ -9,35 +9,38 @@ class AdminUserPage extends StatefulWidget {
 }
 
 class _AdminUserPageState extends State<AdminUserPage> {
-  final supabase = Supabase.instance.client;
-  List<dynamic> userList = [];
+  final supabase = Supabase.instance.client; // Inisialisasi Supabase client
+  List<dynamic> userList = []; // List untuk menyimpan data user
 
   @override
   void initState() {
     super.initState();
-    fetchUsers();
+    fetchUsers(); // Ambil data user saat halaman pertama kali dibuka
   }
 
+  // Fungsi untuk mengambil data user dari tabel 'users' di Supabase
   Future<void> fetchUsers() async {
     final response = await supabase.from('users').select();
 
     setState(() {
-      userList = response;
+      userList = response; // Simpan hasil query ke userList
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Manajemen User')),
+      appBar: AppBar(title: const Text('Manajemen User')), // Judul halaman
       body: ListView.builder(
-        itemCount: userList.length,
+        itemCount: userList.length, // Jumlah user yang akan ditampilkan
         itemBuilder: (context, index) {
           final user = userList[index];
           return ListTile(
-            leading: const Icon(Icons.person),
-            title: Text(user['email'] ?? ''),
-            subtitle: Text('Role: ${user['role'] ?? 'N/A'}'),
+            leading: const Icon(Icons.person), // Icon user
+            title: Text(user['email'] ?? ''), // Tampilkan email user
+            subtitle: Text(
+              'Role: ${user['role'] ?? 'N/A'}',
+            ), // Tampilkan role user
           );
         },
       ),

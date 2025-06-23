@@ -37,18 +37,20 @@ class AuthGate extends StatefulWidget {
 }
 
 class _AuthGateState extends State<AuthGate> {
-  final supabase = Supabase.instance.client;
+  final supabase = Supabase.instance.client; // Inisialisasi Supabase client
 
   @override
   Widget build(BuildContext context) {
+    // Membuat MaterialApp baru (sebenarnya tidak perlu, karena sudah ada di MyApp)
     return MaterialApp(
       title: 'CCTV Management',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(primarySwatch: Colors.blue),
+      // Mengecek apakah user sudah login atau belum
       home:
           Supabase.instance.client.auth.currentUser == null
-              ? const LoginPage()
-              : const HomePage(),
+              ? const LoginPage() // Jika belum login, tampilkan LoginPage
+              : const HomePage(), // Jika sudah login, tampilkan HomePage
     );
   }
 }
