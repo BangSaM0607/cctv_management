@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:cctv_management/models/cctv.dart';
+import 'package:cctv_management/pages/form_page.dart';
+import 'package:cctv_management/utils/insert_log.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-import '../models/cctv.dart';
-import 'form_page.dart';
-import '../utils/insert_log.dart';
 
 class DetailPage extends StatefulWidget {
   final CCTV cctv;
+
   const DetailPage({super.key, required this.cctv});
 
   @override
@@ -31,122 +31,119 @@ class _DetailPageState extends State<DetailPage> {
     });
   }
 
-  Future<void> deleteCCTV(BuildContext context, String id) async {
-    if (userRole != 'admin') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Anda tidak memiliki izin untuk menghapus data'),
-        ),
-      );
-      return;
+  Future<void> deleteCCTV(String id) async {
+    await supabase.from('data_cctv').delete().eq('id', id);
+    await insertLog(action: 'delete', message: 'Hapus CCTV id=$id');
+    if (mounted) {
+      Navigator.pop(context, true); // balik ke HomePage
     }
-
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Konfirmasi'),
-            content: const Text('Apakah anda yakin ingin menghapus CCTV ini?'),
-            actions: [
-              TextButton(
-                child: const Text('Batal'),
-                onPressed: () => Navigator.pop(context, false),
-              ),
-              TextButton(
-                child: const Text('Hapus'),
-                onPressed: () => Navigator.pop(context, true),
-              ),
-            ],
-          ),
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.delete, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Data CCTV berhasil dihapus'),
+          ],
+        ),
+        backgroundColor: Colors.black87,
+      ),
     );
-
-    if (confirm != true) return;
-
-    try {
-      await supabase.from('data_cctv').delete().eq('id', id);
-      await insertLog(action: 'delete', message: 'Hapus CCTV id=$id');
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Data CCTV berhasil dihapus'),
-          backgroundColor: Colors.red,
-        ),
-      );
-
-      Navigator.pop(context, true); // Kembali ke halaman sebelumnya
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Gagal menghapus data: $e')));
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     final cctv = widget.cctv;
 
-    final canEdit = userRole == 'admin' || userRole == 'operator';
-    final canDelete = userRole == 'admin';
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Detail CCTV'),
-        actions: [
-          if (canEdit)
-            IconButton(
-              icon: const Icon(Icons.edit),
-              onPressed: () async {
-                final updated = await Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => FormPage(cctv: cctv)),
-                );
-                if (updated == true) {
-                  Navigator.pop(context, true); // Refresh home_page.dart
-                }
-              },
-            ),
-          if (canDelete)
-            IconButton(
-              icon: const Icon(Icons.delete),
-              onPressed: () => deleteCCTV(context, cctv.id),
-            ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Detail CCTV')),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: ListView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             cctv.imageUrl.isNotEmpty
                 ? Image.network(cctv.imageUrl, height: 200, fit: BoxFit.cover)
-                : const Icon(Icons.image, size: 200, color: Colors.grey),
+                : Container(
+                  height: 200,
+                  color: Colors.grey[300],
+                  child: const Icon(Icons.image, size: 50),
+                ),
             const SizedBox(height: 16),
             Text(
               cctv.name,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
               'Lokasi: ${cctv.location}',
-              style: const TextStyle(fontSize: 18),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Text('Status: ', style: TextStyle(fontSize: 18)),
-                Text(
-                  cctv.status ? 'Aktif' : 'Non-aktif',
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: cctv.status ? Colors.green : Colors.red,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
+              style: const TextStyle(fontSize: 16),
             ),
             const SizedBox(height: 8),
             Text(
-              'Dibuat pada: ${cctv.createdAt.toLocal().toString().split(' ')[0]}',
-              style: const TextStyle(fontSize: 16, color: Colors.grey),
+              'Status: ${cctv.status ? 'Aktif' : 'Non-aktif'}',
+              style: TextStyle(
+                fontSize: 16,
+                color: cctv.status ? Colors.green : Colors.red,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Dibuat: ${cctv.createdAt.toLocal()}',
+              style: const TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+            const Spacer(),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                if (userRole == 'admin' || userRole == 'operator')
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.edit),
+                    label: const Text('Edit'),
+                    onPressed: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => FormPage(cctv: cctv)),
+                      );
+                      Navigator.pop(context, true); // balik HomePage refresh
+                    },
+                  ),
+                if (userRole == 'admin')
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    label: const Text('Hapus'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red[700],
+                    ),
+                    onPressed: () async {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder:
+                            (context) => AlertDialog(
+                              title: const Text('Konfirmasi'),
+                              content: const Text(
+                                'Apakah anda yakin ingin menghapus CCTV ini?',
+                              ),
+                              actions: [
+                                TextButton(
+                                  child: const Text('Batal'),
+                                  onPressed:
+                                      () => Navigator.pop(context, false),
+                                ),
+                                TextButton(
+                                  child: const Text('Hapus'),
+                                  onPressed: () => Navigator.pop(context, true),
+                                ),
+                              ],
+                            ),
+                      );
+
+                      if (confirm == true) {
+                        deleteCCTV(cctv.id);
+                      }
+                    },
+                  ),
+              ],
             ),
           ],
         ),

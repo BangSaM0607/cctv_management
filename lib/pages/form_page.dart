@@ -1,15 +1,17 @@
-import 'dart:io';
+import 'dart:io' show File;
+import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:uuid/uuid.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-import '../models/cctv.dart';
-import '../utils/insert_log.dart';
+import 'package:uuid/uuid.dart';
+import 'package:cctv_management/models/cctv.dart';
+import 'package:cctv_management/utils/insert_log.dart';
 
 class FormPage extends StatefulWidget {
-  final CCTV? cctv;
+  final CCTV? cctv; // << Tambahkan parameter
+
   const FormPage({super.key, this.cctv});
 
   @override
@@ -20,156 +22,145 @@ class _FormPageState extends State<FormPage> {
   final supabase = Supabase.instance.client;
   final _formKey = GlobalKey<FormState>();
 
-  late TextEditingController _nameController;
-  late TextEditingController _locationController;
-  bool status = true;
-  File? pickedImageFile;
-  String? imageUrl;
-  bool isLoading = false;
+  File? _pickedImage;
+  Uint8List? _webImage;
+  String? _imageUrl;
+
+  final _nameController = TextEditingController();
+  final _locationController = TextEditingController();
+  bool _status = true;
 
   @override
   void initState() {
     super.initState();
-
-    _nameController = TextEditingController(text: widget.cctv?.name ?? '');
-    _locationController = TextEditingController(
-      text: widget.cctv?.location ?? '',
-    );
-    status = widget.cctv?.status ?? true;
-    imageUrl = widget.cctv?.imageUrl ?? '';
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _locationController.dispose();
-    super.dispose();
-  }
-
-  Future<void> pickImage() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery);
-    if (picked != null) {
-      setState(() {
-        pickedImageFile = File(picked.path);
-      });
+    if (widget.cctv != null) {
+      _nameController.text = widget.cctv!.name;
+      _locationController.text = widget.cctv!.location;
+      _imageUrl = widget.cctv!.imageUrl;
+      _status = widget.cctv!.status;
     }
   }
 
-  Future<String?> uploadImage(File imageFile, String id) async {
-    final ext = imageFile.path.split('.').last;
-    final filePath = 'cctv_images/$id.$ext';
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
+    if (pickedFile != null) {
+      if (kIsWeb) {
+        final bytes = await pickedFile.readAsBytes();
+        setState(() {
+          _webImage = bytes;
+        });
+      } else {
+        setState(() {
+          _pickedImage = File(pickedFile.path);
+        });
+      }
+    }
+  }
+
+  Future<String?> _uploadImage() async {
     try {
-      await supabase.storage.from('cctv-images').upload(filePath, imageFile);
+      final fileName = const Uuid().v4() + '.jpg';
+      final storageRef = supabase.storage.from('cctv-images');
 
-      final publicUrl = supabase.storage
-          .from('cctv-images')
-          .getPublicUrl(filePath);
-      return publicUrl;
+      if (kIsWeb && _webImage != null) {
+        await storageRef.uploadBinary(fileName, _webImage!);
+      } else if (_pickedImage != null) {
+        await storageRef.upload(fileName, _pickedImage!);
+      } else {
+        return _imageUrl; // Tidak upload ulang → pakai gambar lama
+      }
+
+      final signedUrlResp = await storageRef.createSignedUrl(
+        fileName,
+        3600 * 24 * 7,
+      );
+      return signedUrlResp;
     } catch (e) {
-      print('Upload image error: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Gagal upload gambar: $e')));
       return null;
     }
   }
 
-  Future<void> saveCCTV() async {
+  Future<void> _saveData() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() {
-      isLoading = true;
-    });
+    String? imageUrl = await _uploadImage();
 
-    try {
-      final id = widget.cctv?.id ?? const Uuid().v4();
-
-      String? uploadedImageUrl = imageUrl;
-
-      if (pickedImageFile != null) {
-        final url = await uploadImage(pickedImageFile!, id);
-        if (url != null) {
-          uploadedImageUrl = url;
-        }
-      }
-
-      final data = {
+    if (widget.cctv == null) {
+      // INSERT (tambah data)
+      final id = const Uuid().v4();
+      await supabase.from('data_cctv').insert({
         'id': id,
-        'name': _nameController.text.trim(),
-        'location': _locationController.text.trim(),
-        'image_url': uploadedImageUrl ?? '',
-        'status': status,
+        'name': _nameController.text,
+        'location': _locationController.text,
+        'image_url': imageUrl ?? '',
+        'status': _status,
         'created_at': DateTime.now().toIso8601String(),
-      };
-
-      if (widget.cctv == null) {
-        // Insert new
-        await supabase.from('data_cctv').insert(data);
-        await insertLog(action: 'create', message: 'Tambah CCTV id=$id');
-      } else {
-        // Update existing
-        await supabase.from('data_cctv').update(data).eq('id', id);
-        await insertLog(action: 'update', message: 'Update CCTV id=$id');
-      }
-
-      if (mounted) {
-        Navigator.pop(context, true);
-      }
-    } catch (e) {
-      print('Save CCTV error: $e');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Gagal menyimpan data: $e')));
-    } finally {
-      setState(() {
-        isLoading = false;
       });
+      await insertLog(action: 'insert', message: 'Tambah CCTV id=$id');
+    } else {
+      // UPDATE (edit data)
+      await supabase
+          .from('data_cctv')
+          .update({
+            'name': _nameController.text,
+            'location': _locationController.text,
+            'image_url': imageUrl ?? '',
+            'status': _status,
+          })
+          .eq('id', widget.cctv!.id);
+      await insertLog(
+        action: 'update',
+        message: 'Update CCTV id=${widget.cctv!.id}',
+      );
     }
+
+    if (mounted) Navigator.pop(context, true);
   }
 
-  Widget buildImagePreview() {
-    if (pickedImageFile != null) {
-      return Image.file(
-        pickedImageFile!,
-        width: 120,
-        height: 120,
-        fit: BoxFit.cover,
-      );
-    } else if (imageUrl != null && imageUrl!.isNotEmpty) {
-      return Image.network(
-        imageUrl!,
-        width: 120,
-        height: 120,
-        fit: BoxFit.cover,
-      );
+  Widget _buildImagePreview() {
+    if (kIsWeb) {
+      if (_webImage != null) {
+        return Image.memory(_webImage!, height: 200, fit: BoxFit.cover);
+      }
     } else {
-      return const Icon(Icons.image, size: 120, color: Colors.grey);
+      if (_pickedImage != null) {
+        return Image.file(_pickedImage!, height: 200, fit: BoxFit.cover);
+      }
     }
+
+    if (_imageUrl != null && _imageUrl!.isNotEmpty) {
+      return Image.network(_imageUrl!, height: 200, fit: BoxFit.cover);
+    }
+
+    return Container(
+      height: 200,
+      color: Colors.grey[300],
+      child: const Icon(Icons.camera_alt, size: 50),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final isEditing = widget.cctv != null;
+    final isEdit = widget.cctv != null;
+
     return Scaffold(
-      appBar: AppBar(title: Text(isEditing ? 'Edit CCTV' : 'Tambah CCTV')),
-      body: SingleChildScrollView(
+      appBar: AppBar(title: Text(isEdit ? 'Edit CCTV' : 'Tambah CCTV')),
+      body: Padding(
         padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
-          child: Column(
+          child: ListView(
             children: [
-              buildImagePreview(),
-              TextButton.icon(
-                onPressed: pickImage,
-                icon: const Icon(Icons.image),
-                label: const Text('Pilih Gambar'),
-              ),
+              GestureDetector(onTap: _pickImage, child: _buildImagePreview()),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Nama Gedung / CCTV',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: const InputDecoration(labelText: 'Nama CCTV'),
                 validator:
                     (value) =>
                         value == null || value.isEmpty
@@ -179,10 +170,7 @@ class _FormPageState extends State<FormPage> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _locationController,
-                decoration: const InputDecoration(
-                  labelText: 'Lokasi',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: const InputDecoration(labelText: 'Lokasi'),
                 validator:
                     (value) =>
                         value == null || value.isEmpty
@@ -192,20 +180,18 @@ class _FormPageState extends State<FormPage> {
               const SizedBox(height: 16),
               SwitchListTile(
                 title: const Text('Status Aktif'),
-                value: status,
+                value: _status,
                 onChanged: (val) {
                   setState(() {
-                    status = val;
+                    _status = val;
                   });
                 },
               ),
-              const SizedBox(height: 24),
-              isLoading
-                  ? const CircularProgressIndicator()
-                  : ElevatedButton(
-                    onPressed: saveCCTV,
-                    child: Text(isEditing ? 'Update' : 'Simpan'),
-                  ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _saveData,
+                child: Text(isEdit ? 'Update' : 'Simpan'),
+              ),
             ],
           ),
         ),
